@@ -3,12 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Mayınlar Döndü</title>
+    <title>Rüzgar: Özel Düşmanlar</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
-        canvas { background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); display: block; cursor: crosshair; }
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; transition: background 0.8s; }
+        canvas { display: block; cursor: crosshair; }
         .ui-container { position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none; }
         .stats { font-size: 18px; background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border: 1px solid #444; }
+        #subtitle-panel {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 80%; max-width: 600px; background: rgba(0, 0, 0, 0.7);
+            border-top: 2px solid #00d2ff; padding: 10px; border-radius: 10px;
+            text-align: center; font-size: 22px; font-weight: bold; min-height: 35px;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3); pointer-events: none;
+        }
         .ammo-bar { display: flex; gap: 5px; margin-top: 10px; align-items: center; }
         .ammo-slot { width: 30px; height: 10px; background: #222; border: 1px solid #555; border-radius: 3px; overflow: hidden; }
         .ammo-fill { height: 100%; background: #00d2ff; width: 0%; transition: width 0.1s; }
@@ -22,12 +29,13 @@
 
     <div id="startScreen" class="overlay">
         <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
-        <p>Ateş: <b>Ok Tuşları</b> | Hareket: <b>Fare</b> | Mayın: <b>Sol Tık</b></p>
+        <p>Ateş: <b>Ok Tuşları</b> | Mayın: <b>Sol Tık</b></p>
+        <p style="color:#e74c3c">Tanklara Dikkat! Görünmezleri Takip Et!</p>
         <button class="btn" onclick="startGame()">SAVAŞI BAŞLAT</button>
     </div>
 
     <div id="gameOver" class="overlay" style="display: none;">
-        <h1 style="color:#ff4757">OYUN BİTTİ</h1>
+        <h1 style="color:#ff4757">YAKALANDIN!</h1>
         <p id="finalScore" style="font-size: 25px;"></p>
         <button class="btn" style="background:#3498db;" onclick="location.reload()">TEKRAR DENE</button>
     </div>
@@ -44,6 +52,7 @@
         </div>
     </div>
 
+    <div id="subtitle-panel">Sistem Hazır...</div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -52,6 +61,7 @@
         const scoreEl = document.getElementById("score");
         const levelEl = document.getElementById("ui-level");
         const mineCountEl = document.getElementById("mineCount");
+        const subtitlePanel = document.getElementById("subtitle-panel");
         
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -63,6 +73,7 @@
         let bullets = [];
         let mines = [];
         let shakeAmount = 0;
+        const bgColors = ["#050505", "#1e0b0b", "#0b1e0b", "#0b0b1e", "#1e1e0b"];
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playTone(freq, type, duration, vol = 0.1) {
@@ -78,12 +89,15 @@
 
         const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
         const player = { x: canvas.width/2, y: canvas.height/2, size: 20 };
+        
+        // --- YENİ ÖZEL DÜŞMAN KADROSU ---
         const hunterTemplates = [
-            { name: "Mert Hoca", color: "#ff4757", speed: 2.0 },
-            { name: "Kutay", color: "#ffa502", speed: 2.7 },
-            { name: "Ali", color: "#5352ed", speed: 3.3 },
-            { name: "Birce", color: "#ff9ff3", speed: 2.9 },
-            { name: "Cansu Hoca", color: "#ffffff", speed: 2.1 }
+            { name: "Tank Mert", quote: "Çok yavaş ama yıkılmaz!", color: "#c0392b", speed: 0.8, maxHp: 3, type: 'tank', size: 45 },
+            { name: "Görünmez Kutay", quote: "Şimdi varım, şimdi yokum!", color: "#ffa502", speed: 2.7, maxHp: 1, type: 'invisible' },
+            { name: "Işınlanan Ali", quote: "Beni asla vuramazsın!", color: "#5352ed", speed: 2.2, maxHp: 1, type: 'teleport' },
+            { name: "Zorba Emre", quote: "Seni zorbalıycam!", color: "#8e44ad", speed: 2.5, maxHp: 2, type: 'normal' },
+            { name: "Birce", quote: "Bana Gökçe deme!", color: "#ff9ff3", speed: 2.9, maxHp: 1, type: 'normal' },
+            { name: "Cansu Hoca", quote: "Ciddiyet lütfen!", color: "#ffffff", speed: 2.1, maxHp: 2, type: 'normal' }
         ];
 
         let activeHunters = [];
@@ -92,7 +106,14 @@
             audioCtx.resume();
             document.getElementById("startScreen").style.display = "none";
             gameActive = true;
-            activeHunters = hunterTemplates.map(t => ({...t, x: Math.random()*canvas.width, y: -50, dead: false, size: 30}));
+            activeHunters = hunterTemplates.map(t => ({
+                ...t, 
+                x: Math.random()*canvas.width, y: -50, 
+                dead: false, hp: t.maxHp, 
+                size: t.size || 30,
+                opacity: 1,
+                lastTeleport: Date.now()
+            }));
             gameLoop();
         }
 
@@ -100,7 +121,7 @@
             if(gameActive && e.button === 0 && mines.length < 5) {
                 mines.push({x: player.x, y: player.y});
                 mineCountEl.innerText = 5 - mines.length;
-                playTone(200, 'sine', 0.1); // Mayın bırakma sesi
+                playTone(200, 'sine', 0.1);
             }
         });
 
@@ -111,7 +132,7 @@
                 let vx=0, vy=0;
                 if(e.key === "ArrowUp") vy=-15; if(e.key === "ArrowDown") vy=15;
                 if(e.key === "ArrowLeft") vx=-15; if(e.key === "ArrowRight") vx=15;
-                playTone(500, 'sine', 0.1); 
+                playTone(500, 'sine', 0.05); 
                 bullets.push({x: player.x, y: player.y, vx, vy});
                 ammoSlots[slotIndex].ready = false;
                 ammoSlots[slotIndex].last = Date.now();
@@ -135,39 +156,65 @@
 
             activeHunters.forEach(h => {
                 if(h.dead) return;
+
+                // --- ÖZEL YETENEK MANTIKLARI ---
+                if(h.type === 'invisible') {
+                    h.opacity = 0.3 + Math.abs(Math.sin(now/500)) * 0.7; // Şeffaflaşma
+                }
+                
+                if(h.type === 'teleport' && now - h.lastTeleport > 3000) { // Her 3 saniyede bir zıpla
+                    h.x += (Math.random() - 0.5) * 300;
+                    h.y += (Math.random() - 0.5) * 300;
+                    h.lastTeleport = now;
+                    playTone(800, 'sine', 0.1, 0.05);
+                }
+
                 const angle = Math.atan2(player.y - h.y, player.x - h.x);
                 h.x += Math.cos(angle) * (h.speed * speedMultiplier);
                 h.y += Math.sin(angle) * (h.speed * speedMultiplier);
 
+                const dealDamage = (dmg, isMine) => {
+                    h.hp -= dmg;
+                    playTone(isMine ? 100 : 300, 'sawtooth', 0.1);
+                    if(h.hp <= 0) {
+                        h.dead = true;
+                        score += isMine ? 100 : 50;
+                        shakeAmount = isMine ? 25 : 10;
+                        subtitlePanel.innerHTML = `<span style="color:${h.color}">${h.name}:</span> "${h.quote}"`;
+
+                        if(Math.floor(score/300) + 1 > currentLevel) {
+                            currentLevel++;
+                            speedMultiplier += 0.2;
+                            levelEl.innerText = currentLevel;
+                            document.body.style.background = bgColors[currentLevel % bgColors.length];
+                            playTone(400, 'sine', 0.5, 0.2); 
+                        }
+                        setTimeout(() => { 
+                            h.dead = false; h.hp = h.maxHp; 
+                            h.x = Math.random()*canvas.width; h.y = -50; 
+                        }, 2000);
+                        scoreEl.innerText = score;
+                    }
+                };
+
                 bullets.forEach((b, bi) => {
                     if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
-                        h.dead = true; score += 50;
-                        playTone(150, 'sawtooth', 0.15); 
-                        if(Math.floor(score/300) + 1 > currentLevel) {
-                            currentLevel++; speedMultiplier += 0.3;
-                            levelEl.innerText = currentLevel; shakeAmount = 15;
-                        }
-                        setTimeout(() => { h.dead = false; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
+                        dealDamage(1, false);
                         bullets.splice(bi, 1);
-                        scoreEl.innerText = score;
                     }
                 });
 
                 mines.forEach((m, mi) => {
                     if(Math.hypot(m.x - h.x, m.y - h.y) < h.size + 15) {
-                        h.dead = true; score += 70;
-                        shakeAmount = 25;
-                        playTone(80, 'sawtooth', 0.3); // Mayın patlama sesi
+                        dealDamage(5, true);
                         mines.splice(mi, 1);
                         mineCountEl.innerText = 5 - mines.length;
-                        setTimeout(() => { h.dead = false; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
-                        scoreEl.innerText = score;
                     }
                 });
 
                 if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) {
                     gameActive = false;
-                    playTone(60, 'square', 0.4); 
+                    playTone(60, 'square', 0.5);
                     document.getElementById("gameOver").style.display = "flex";
                     document.getElementById("finalScore").innerText = `SKOR: ${score}`;
                 }
@@ -186,17 +233,32 @@
             
             mines.forEach(m => {
                 ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.arc(m.x, m.y, 10, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = (Date.now() % 400 < 200) ? "red" : "black";
-                ctx.beginPath(); ctx.arc(m.x, m.y, 4, 0, Math.PI*2); ctx.fill();
             });
 
             activeHunters.forEach(h => {
                 if(h.dead) return;
-                ctx.fillStyle = h.color; ctx.shadowBlur = 10; ctx.shadowColor = h.color;
-                ctx.fillRect(h.x - h.size/2, h.y - h.size/2, h.size, h.size);
+                ctx.globalAlpha = h.opacity || 1;
+                ctx.fillStyle = h.color;
+                ctx.shadowBlur = 10; ctx.shadowColor = h.color;
+                
+                // Tipine göre şekil farkı
+                if(h.type === 'tank') ctx.fillRect(h.x - h.size/2, h.y - h.size/2, h.size, h.size);
+                else {
+                    ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2, 0, Math.PI*2); ctx.fill();
+                }
+                
+                if(h.maxHp > 1) { // Can Barı
+                    ctx.fillStyle = "rgba(255,255,255,0.2)";
+                    ctx.fillRect(h.x - 15, h.y - h.size/2 - 10, 30, 4);
+                    ctx.fillStyle = "#2ecc71";
+                    ctx.fillRect(h.x - 15, h.y - h.size/2 - 10, (h.hp / h.maxHp) * 30, 4);
+                }
+
                 ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
-                ctx.fillText(h.name, h.x, h.y + h.size + 10);
+                ctx.fillText(h.name, h.x, h.y + h.size/2 + 15);
+                ctx.globalAlpha = 1;
             });
+
             bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-4, b.y-4, 8, 8); });
             ctx.shadowBlur = 20; ctx.shadowColor = "#00d2ff";
             ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
