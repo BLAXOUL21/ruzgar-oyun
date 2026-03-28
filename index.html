@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Özel Düşmanlar</title>
+    <title>Rüzgar: Tam Görünmezlik</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; transition: background 0.8s; }
         canvas { display: block; cursor: crosshair; }
@@ -30,7 +30,7 @@
     <div id="startScreen" class="overlay">
         <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
         <p>Ateş: <b>Ok Tuşları</b> | Mayın: <b>Sol Tık</b></p>
-        <p style="color:#e74c3c">Tanklara Dikkat! Görünmezleri Takip Et!</p>
+        <p style="color:#f1c40f">Dikkat: Bazıları 2 saniye boyunca tamamen kaybolur!</p>
         <button class="btn" onclick="startGame()">SAVAŞI BAŞLAT</button>
     </div>
 
@@ -90,10 +90,9 @@
         const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
         const player = { x: canvas.width/2, y: canvas.height/2, size: 20 };
         
-        // --- YENİ ÖZEL DÜŞMAN KADROSU ---
         const hunterTemplates = [
             { name: "Tank Mert", quote: "Çok yavaş ama yıkılmaz!", color: "#c0392b", speed: 0.8, maxHp: 3, type: 'tank', size: 45 },
-            { name: "Görünmez Kutay", quote: "Şimdi varım, şimdi yokum!", color: "#ffa502", speed: 2.7, maxHp: 1, type: 'invisible' },
+            { name: "Görünmez Kutay", quote: "Neredeyim, bul bakalım!", color: "#ffa502", speed: 2.7, maxHp: 1, type: 'invisible' },
             { name: "Işınlanan Ali", quote: "Beni asla vuramazsın!", color: "#5352ed", speed: 2.2, maxHp: 1, type: 'teleport' },
             { name: "Zorba Emre", quote: "Seni zorbalıycam!", color: "#8e44ad", speed: 2.5, maxHp: 2, type: 'normal' },
             { name: "Birce", quote: "Bana Gökçe deme!", color: "#ff9ff3", speed: 2.9, maxHp: 1, type: 'normal' },
@@ -112,7 +111,8 @@
                 dead: false, hp: t.maxHp, 
                 size: t.size || 30,
                 opacity: 1,
-                lastTeleport: Date.now()
+                lastTeleport: Date.now(),
+                lastInvisChange: Date.now()
             }));
             gameLoop();
         }
@@ -157,12 +157,13 @@
             activeHunters.forEach(h => {
                 if(h.dead) return;
 
-                // --- ÖZEL YETENEK MANTIKLARI ---
+                // --- GÖRÜNMEZLİK MANTIĞI: 2 Saniye Tam Kapalı, 2 Saniye Açık ---
                 if(h.type === 'invisible') {
-                    h.opacity = 0.3 + Math.abs(Math.sin(now/500)) * 0.7; // Şeffaflaşma
+                    const cycle = (now - h.lastInvisChange) % 4000;
+                    h.opacity = cycle < 2000 ? 0 : 1; // İlk 2 saniye tamamen görünmez
                 }
                 
-                if(h.type === 'teleport' && now - h.lastTeleport > 3000) { // Her 3 saniyede bir zıpla
+                if(h.type === 'teleport' && now - h.lastTeleport > 3000) {
                     h.x += (Math.random() - 0.5) * 300;
                     h.y += (Math.random() - 0.5) * 300;
                     h.lastTeleport = now;
@@ -187,27 +188,21 @@
                             speedMultiplier += 0.2;
                             levelEl.innerText = currentLevel;
                             document.body.style.background = bgColors[currentLevel % bgColors.length];
-                            playTone(400, 'sine', 0.5, 0.2); 
                         }
-                        setTimeout(() => { 
-                            h.dead = false; h.hp = h.maxHp; 
-                            h.x = Math.random()*canvas.width; h.y = -50; 
-                        }, 2000);
+                        setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
                         scoreEl.innerText = score;
                     }
                 };
 
                 bullets.forEach((b, bi) => {
                     if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
-                        dealDamage(1, false);
-                        bullets.splice(bi, 1);
+                        dealDamage(1, false); bullets.splice(bi, 1);
                     }
                 });
 
                 mines.forEach((m, mi) => {
                     if(Math.hypot(m.x - h.x, m.y - h.y) < h.size + 15) {
-                        dealDamage(5, true);
-                        mines.splice(mi, 1);
+                        dealDamage(5, true); mines.splice(mi, 1);
                         mineCountEl.innerText = 5 - mines.length;
                     }
                 });
@@ -222,7 +217,7 @@
 
             bullets.forEach((b, i) => {
                 b.x += b.vx; b.y += b.vy;
-                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
+                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, i);
             });
         }
 
@@ -236,18 +231,15 @@
             });
 
             activeHunters.forEach(h => {
-                if(h.dead) return;
-                ctx.globalAlpha = h.opacity || 1;
+                if(h.dead || h.opacity === 0) return; // Tam görünmezken çizme
+                
                 ctx.fillStyle = h.color;
                 ctx.shadowBlur = 10; ctx.shadowColor = h.color;
                 
-                // Tipine göre şekil farkı
                 if(h.type === 'tank') ctx.fillRect(h.x - h.size/2, h.y - h.size/2, h.size, h.size);
-                else {
-                    ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2, 0, Math.PI*2); ctx.fill();
-                }
+                else { ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2, 0, Math.PI*2); ctx.fill(); }
                 
-                if(h.maxHp > 1) { // Can Barı
+                if(h.maxHp > 1) {
                     ctx.fillStyle = "rgba(255,255,255,0.2)";
                     ctx.fillRect(h.x - 15, h.y - h.size/2 - 10, 30, 4);
                     ctx.fillStyle = "#2ecc71";
@@ -256,7 +248,6 @@
 
                 ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
                 ctx.fillText(h.name, h.x, h.y + h.size/2 + 15);
-                ctx.globalAlpha = 1;
             });
 
             bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-4, b.y-4, 8, 8); });
