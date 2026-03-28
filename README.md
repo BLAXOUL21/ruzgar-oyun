@@ -1,8 +1,4 @@
-Anlıyorum, kopyalarken bir şeyler eksik kalmış olabilir. İşte oyunun en güncel, sarsıntı efektli, kısıtlı mermili ve Emre karakterinin olduğu tam kodu.
 
-GitHub'daki index.html dosyasının içindeki her şeyi sil ve bu kodun tamamını (en başındaki <!DOCTYPE html> kısmından en sonundaki </html> kısmına kadar) yapıştır:
-
-HTML
 <!DOCTYPE html>
 <html lang="tr">
 <head>
