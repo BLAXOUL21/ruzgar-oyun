@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Müzikli Savaş</title>
+    <title>Rüzgar: Hızlı Seviye</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
         canvas { background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); display: block; cursor: crosshair; }
@@ -31,7 +31,8 @@
     <div id="startScreen" class="overlay">
         <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
         <p>Ateş: Ok Tuşları | Hareket: Fare</p>
-        <button class="btn" onclick="startGame()">MÜZİĞİ AÇ VE BAŞLAT</button>
+        <p style="color: #f1c40f;">Her 300 skorda bir Level Atlarsın!</p>
+        <button class="btn" onclick="startGame()">SAVAŞI BAŞLAT</button>
     </div>
 
     <div id="gameOver" class="overlay" style="display: none;">
@@ -70,7 +71,6 @@
         let bullets = [];
         let shakeAmount = 0;
 
-        // --- SES SİSTEMİ (Müzik ve Efektler) ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
         function playTone(freq, type, duration, vol = 0.1) {
@@ -85,15 +85,6 @@
             osc.start();
             osc.stop(audioCtx.currentTime + duration);
         }
-
-        function playMusic() {
-            if(!gameActive) return;
-            // Ritmik arka plan müziği
-            playTone(100 + (currentLevel * 10), 'triangle', 0.2, 0.05);
-            setTimeout(() => { if(gameActive) playTone(120 + (currentLevel * 10), 'triangle', 0.2, 0.05); }, 400);
-            setTimeout(playMusic, 800);
-        }
-        // ---------------------------------------
 
         const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
         const player = { x: canvas.width/2, y: canvas.height/2, size: 20 };
@@ -112,7 +103,6 @@
             document.getElementById("startScreen").style.display = "none";
             gameActive = true;
             activeHunters = hunterTemplates.map(t => ({...t, x: Math.random()*canvas.width, y: -50, dead: false, size: 30}));
-            playMusic();
             gameLoop();
         }
 
@@ -126,7 +116,7 @@
                 if(e.key === "ArrowLeft") vx=-15;
                 if(e.key === "ArrowRight") vx=15;
                 
-                playTone(500, 'sine', 0.1); // Ateş sesi
+                playTone(500, 'sine', 0.1); 
                 bullets.push({x: player.x, y: player.y, vx, vy});
                 ammoSlots[slotIndex].ready = false;
                 ammoSlots[slotIndex].last = Date.now();
@@ -144,7 +134,7 @@
                 if(!s.ready) {
                     const progress = Math.min(((now - s.last)/1500)*100, 100);
                     fill.style.width = progress + "%";
-                    if(progress >= 100) { s.ready = true; } 
+                    if(progress >= 100) s.ready = true;
                 } else { fill.style.width = "100%"; fill.classList.add("ammo-ready"); }
             });
 
@@ -157,13 +147,15 @@
                 bullets.forEach((b, bi) => {
                     if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
                         h.dead = true; score += 50;
-                        playTone(150, 'sawtooth', 0.15); // Vurma sesi
+                        playTone(150, 'sawtooth', 0.15); 
                         
-                        if(Math.floor(score/500) + 1 > currentLevel) {
+                        // LEVEL UP KONTROLÜ (300 PUANDA BİR)
+                        if(Math.floor(score/300) + 1 > currentLevel) {
                             currentLevel++;
-                            speedMultiplier += 0.25;
+                            speedMultiplier += 0.3; // %30 hızlanma
                             levelEl.innerText = currentLevel;
                             shakeAmount = 15;
+                            playTone(400, 'sine', 0.3); // Level up sesi
                         }
 
                         setTimeout(() => { h.dead = false; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
@@ -174,633 +166,9 @@
 
                 if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) {
                     gameActive = false;
-                    playTone(60, 'square', 0.4); // Kaybetme sesi
+                    playTone(60, 'square', 0.4); 
                     document.getElementById("gameOver").style.display = "flex";
-                    document.getElementById("finalScore").innerText = `SKOR: ${score}`;
-                }
-            });
-
-            bullets.forEach((b, i) => {
-                b.x += b.vx; b.y += b.vy;
-                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
-            });
-        }
-
-        function draw() {
-            ctx.save();
-            if (shakeAmount > 0.5) ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            activeHunters.forEach(h => {
-                if(h.dead) return;
-                ctx.fillStyle = h.color; ctx.shadowBlur = 10; ctx.shadowColor = h.color;
-                ctx.fillRect(h.x - h.size/2, h.y - h.size/2, h.size, h.size);
-                ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
-                ctx.fillText(h.name, h.x, h.y + h.size + 10);
-            });
-            bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-4, b.y-4, 8, 8); });
-            ctx.shadowBlur = 20; ctx.shadowColor = "#00d2ff";
-            ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
-        }
-
-        function gameLoop() { if(gameActive) { update(); draw(); requestAnimationFrame(gameLoop); } }
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Müzikli Savaş</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
-        canvas { background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); display: block; cursor: crosshair; }
-        
-        .ui-container { position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none; }
-        .stats { font-size: 18px; background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border: 1px solid #444; }
-        
-        .ammo-bar { display: flex; gap: 5px; margin-top: 10px; align-items: center; }
-        .ammo-slot { width: 30px; height: 10px; background: #222; border: 1px solid #555; border-radius: 3px; overflow: hidden; }
-        .ammo-fill { height: 100%; background: #00d2ff; width: 0%; transition: width 0.1s; }
-        .ammo-ready { background: #f1c40f; box-shadow: 0 0 8px #f1c40f; width: 100% !important; }
-
-        .overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            background: rgba(0,0,0,0.9); z-index: 100; text-align: center;
-        }
-        
-        .btn { padding: 15px 50px; font-size: 24px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 50px; transition: 0.3s; }
-        .btn:hover { transform: scale(1.1); box-shadow: 0 0 30px #2ecc71; }
-    </style>
-</head>
-<body>
-
-    <div id="startScreen" class="overlay">
-        <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
-        <p>Ateş: Ok Tuşları | Hareket: Fare</p>
-        <button class="btn" onclick="startGame()">MÜZİĞİ AÇ VE BAŞLAT</button>
-    </div>
-
-    <div id="gameOver" class="overlay" style="display: none;">
-        <h1 style="color:#ff4757">OYUN BİTTİ</h1>
-        <p id="finalScore" style="font-size: 25px;"></p>
-        <button class="btn" style="background:#3498db;" onclick="location.reload()">TEKRAR DENE</button>
-    </div>
-
-    <div class="ui-container">
-        <div class="stats">
-            SKOR: <b id="score">0</b><br>
-            LEVEL: <b id="ui-level" style="color:#f1c40f">1</b>
-        </div>
-        <div class="ammo-bar">
-            <div class="ammo-slot"><div id="slot0" class="ammo-fill"></div></div>
-            <div class="ammo-slot"><div id="slot1" class="ammo-fill"></div></div>
-            <div class="ammo-slot"><div id="slot2" class="ammo-fill"></div></div>
-        </div>
-    </div>
-
-    <canvas id="gameCanvas"></canvas>
-
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const scoreEl = document.getElementById("score");
-        const levelEl = document.getElementById("ui-level");
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        let gameActive = false;
-        let score = 0;
-        let currentLevel = 1;
-        let speedMultiplier = 1;
-        let bullets = [];
-        let shakeAmount = 0;
-
-        // --- SES SİSTEMİ (Müzik ve Efektler) ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        function playTone(freq, type, duration, vol = 0.1) {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
-        }
-
-        function playMusic() {
-            if(!gameActive) return;
-            // Ritmik arka plan müziği
-            playTone(100 + (currentLevel * 10), 'triangle', 0.2, 0.05);
-            setTimeout(() => { if(gameActive) playTone(120 + (currentLevel * 10), 'triangle', 0.2, 0.05); }, 400);
-            setTimeout(playMusic, 800);
-        }
-        // ---------------------------------------
-
-        const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
-        const player = { x: canvas.width/2, y: canvas.height/2, size: 20 };
-        const hunterTemplates = [
-            { name: "Mert Hoca", color: "#ff4757", speed: 2.0 },
-            { name: "Kutay", color: "#ffa502", speed: 2.7 },
-            { name: "Ali", color: "#5352ed", speed: 3.3 },
-            { name: "Birce", color: "#ff9ff3", speed: 2.9 },
-            { name: "Cansu Hoca", color: "#ffffff", speed: 2.1 }
-        ];
-
-        let activeHunters = [];
-
-        function startGame() {
-            audioCtx.resume();
-            document.getElementById("startScreen").style.display = "none";
-            gameActive = true;
-            activeHunters = hunterTemplates.map(t => ({...t, x: Math.random()*canvas.width, y: -50, dead: false, size: 30}));
-            playMusic();
-            gameLoop();
-        }
-
-        window.addEventListener("keydown", e => {
-            if(!gameActive) return;
-            const slotIndex = ammoSlots.findIndex(s => s.ready);
-            if(e.key.startsWith("Arrow") && slotIndex !== -1) {
-                let vx=0, vy=0;
-                if(e.key === "ArrowUp") vy=-15;
-                if(e.key === "ArrowDown") vy=15;
-                if(e.key === "ArrowLeft") vx=-15;
-                if(e.key === "ArrowRight") vx=15;
-                
-                playTone(500, 'sine', 0.1); // Ateş sesi
-                bullets.push({x: player.x, y: player.y, vx, vy});
-                ammoSlots[slotIndex].ready = false;
-                ammoSlots[slotIndex].last = Date.now();
-            }
-        });
-
-        window.addEventListener("mousemove", e => { if(gameActive) { player.x = e.clientX; player.y = e.clientY; }});
-
-        function update() {
-            const now = Date.now();
-            if(shakeAmount > 0) shakeAmount *= 0.9;
-
-            ammoSlots.forEach((s, i) => {
-                const fill = document.getElementById("slot"+i);
-                if(!s.ready) {
-                    const progress = Math.min(((now - s.last)/1500)*100, 100);
-                    fill.style.width = progress + "%";
-                    if(progress >= 100) { s.ready = true; } 
-                } else { fill.style.width = "100%"; fill.classList.add("ammo-ready"); }
-            });
-
-            activeHunters.forEach(h => {
-                if(h.dead) return;
-                const angle = Math.atan2(player.y - h.y, player.x - h.x);
-                h.x += Math.cos(angle) * (h.speed * speedMultiplier);
-                h.y += Math.sin(angle) * (h.speed * speedMultiplier);
-
-                bullets.forEach((b, bi) => {
-                    if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
-                        h.dead = true; score += 50;
-                        playTone(150, 'sawtooth', 0.15); // Vurma sesi
-                        
-                        if(Math.floor(score/500) + 1 > currentLevel) {
-                            currentLevel++;
-                            speedMultiplier += 0.25;
-                            levelEl.innerText = currentLevel;
-                            shakeAmount = 15;
-                        }
-
-                        setTimeout(() => { h.dead = false; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
-                        bullets.splice(bi, 1);
-                        scoreEl.innerText = score;
-                    }
-                });
-
-                if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) {
-                    gameActive = false;
-                    playTone(60, 'square', 0.4); // Kaybetme sesi
-                    document.getElementById("gameOver").style.display = "flex";
-                    document.getElementById("finalScore").innerText = `SKOR: ${score}`;
-                }
-            });
-
-            bullets.forEach((b, i) => {
-                b.x += b.vx; b.y += b.vy;
-                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
-            });
-        }
-
-        function draw() {
-            ctx.save();
-            if (shakeAmount > 0.5) ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            activeHunters.forEach(h => {
-                if(h.dead) return;
-                ctx.fillStyle = h.color; ctx.shadowBlur = 10; ctx.shadowColor = h.color;
-                ctx.fillRect(h.x - h.size/2, h.y - h.size/2, h.size, h.size);
-                ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
-                ctx.fillText(h.name, h.x, h.y + h.size + 10);
-            });
-            bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-4, b.y-4, 8, 8); });
-            ctx.shadowBlur = 20; ctx.shadowColor = "#00d2ff";
-            ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
-        }
-
-        function gameLoop() { if(gameActive) { update(); draw(); requestAnimationFrame(gameLoop); } }
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Müzikli Savaş</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
-        canvas { background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); display: block; cursor: crosshair; }
-        
-        .ui-container { position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none; }
-        .stats { font-size: 18px; background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border: 1px solid #444; }
-        
-        .ammo-bar { display: flex; gap: 5px; margin-top: 10px; align-items: center; }
-        .ammo-slot { width: 30px; height: 10px; background: #222; border: 1px solid #555; border-radius: 3px; overflow: hidden; }
-        .ammo-fill { height: 100%; background: #00d2ff; width: 0%; transition: width 0.1s; }
-        .ammo-ready { background: #f1c40f; box-shadow: 0 0 8px #f1c40f; width: 100% !important; }
-
-        .overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            background: rgba(0,0,0,0.9); z-index: 100; text-align: center;
-        }
-        
-        .btn { padding: 15px 50px; font-size: 24px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 50px; transition: 0.3s; }
-        .btn:hover { transform: scale(1.1); box-shadow: 0 0 30px #2ecc71; }
-    </style>
-</head>
-<body>
-
-    <div id="startScreen" class="overlay">
-        <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
-        <p>Ateş: Ok Tuşları | Hareket: Fare</p>
-        <button class="btn" onclick="startGame()">MÜZİĞİ AÇ VE BAŞLAT</button>
-    </div>
-
-    <div id="gameOver" class="overlay" style="display: none;">
-        <h1 style="color:#ff4757">OYUN BİTTİ</h1>
-        <p id="finalScore" style="font-size: 25px;"></p>
-        <button class="btn" style="background:#3498db;" onclick="location.reload()">TEKRAR DENE</button>
-    </div>
-
-    <div class="ui-container">
-        <div class="stats">
-            SKOR: <b id="score">0</b><br>
-            LEVEL: <b id="ui-level" style="color:#f1c40f">1</b>
-        </div>
-        <div class="ammo-bar">
-            <div class="ammo-slot"><div id="slot0" class="ammo-fill"></div></div>
-            <div class="ammo-slot"><div id="slot1" class="ammo-fill"></div></div>
-            <div class="ammo-slot"><div id="slot2" class="ammo-fill"></div></div>
-        </div>
-    </div>
-
-    <canvas id="gameCanvas"></canvas>
-
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const scoreEl = document.getElementById("score");
-        const levelEl = document.getElementById("ui-level");
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        let gameActive = false;
-        let score = 0;
-        let currentLevel = 1;
-        let speedMultiplier = 1;
-        let bullets = [];
-        let shakeAmount = 0;
-
-        // --- SES SİSTEMİ (Müzik ve Efektler) ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        function playTone(freq, type, duration, vol = 0.1) {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
-        }
-
-        function playMusic() {
-            if(!gameActive) return;
-            // Ritmik arka plan müziği
-            playTone(100 + (currentLevel * 10), 'triangle', 0.2, 0.05);
-            setTimeout(() => { if(gameActive) playTone(120 + (currentLevel * 10), 'triangle', 0.2, 0.05); }, 400);
-            setTimeout(playMusic, 800);
-        }
-        // ---------------------------------------
-
-        const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
-        const player = { x: canvas.width/2, y: canvas.height/2, size: 20 };
-        const hunterTemplates = [
-            { name: "Mert Hoca", color: "#ff4757", speed: 2.0 },
-            { name: "Kutay", color: "#ffa502", speed: 2.7 },
-            { name: "Ali", color: "#5352ed", speed: 3.3 },
-            { name: "Birce", color: "#ff9ff3", speed: 2.9 },
-            { name: "Cansu Hoca", color: "#ffffff", speed: 2.1 }
-        ];
-
-        let activeHunters = [];
-
-        function startGame() {
-            audioCtx.resume();
-            document.getElementById("startScreen").style.display = "none";
-            gameActive = true;
-            activeHunters = hunterTemplates.map(t => ({...t, x: Math.random()*canvas.width, y: -50, dead: false, size: 30}));
-            playMusic();
-            gameLoop();
-        }
-
-        window.addEventListener("keydown", e => {
-            if(!gameActive) return;
-            const slotIndex = ammoSlots.findIndex(s => s.ready);
-            if(e.key.startsWith("Arrow") && slotIndex !== -1) {
-                let vx=0, vy=0;
-                if(e.key === "ArrowUp") vy=-15;
-                if(e.key === "ArrowDown") vy=15;
-                if(e.key === "ArrowLeft") vx=-15;
-                if(e.key === "ArrowRight") vx=15;
-                
-                playTone(500, 'sine', 0.1); // Ateş sesi
-                bullets.push({x: player.x, y: player.y, vx, vy});
-                ammoSlots[slotIndex].ready = false;
-                ammoSlots[slotIndex].last = Date.now();
-            }
-        });
-
-        window.addEventListener("mousemove", e => { if(gameActive) { player.x = e.clientX; player.y = e.clientY; }});
-
-        function update() {
-            const now = Date.now();
-            if(shakeAmount > 0) shakeAmount *= 0.9;
-
-            ammoSlots.forEach((s, i) => {
-                const fill = document.getElementById("slot"+i);
-                if(!s.ready) {
-                    const progress = Math.min(((now - s.last)/1500)*100, 100);
-                    fill.style.width = progress + "%";
-                    if(progress >= 100) { s.ready = true; } 
-                } else { fill.style.width = "100%"; fill.classList.add("ammo-ready"); }
-            });
-
-            activeHunters.forEach(h => {
-                if(h.dead) return;
-                const angle = Math.atan2(player.y - h.y, player.x - h.x);
-                h.x += Math.cos(angle) * (h.speed * speedMultiplier);
-                h.y += Math.sin(angle) * (h.speed * speedMultiplier);
-
-                bullets.forEach((b, bi) => {
-                    if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
-                        h.dead = true; score += 50;
-                        playTone(150, 'sawtooth', 0.15); // Vurma sesi
-                        
-                        if(Math.floor(score/500) + 1 > currentLevel) {
-                            currentLevel++;
-                            speedMultiplier += 0.25;
-                            levelEl.innerText = currentLevel;
-                            shakeAmount = 15;
-                        }
-
-                        setTimeout(() => { h.dead = false; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
-                        bullets.splice(bi, 1);
-                        scoreEl.innerText = score;
-                    }
-                });
-
-                if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) {
-                    gameActive = false;
-                    playTone(60, 'square', 0.4); // Kaybetme sesi
-                    document.getElementById("gameOver").style.display = "flex";
-                    document.getElementById("finalScore").innerText = `SKOR: ${score}`;
-                }
-            });
-
-            bullets.forEach((b, i) => {
-                b.x += b.vx; b.y += b.vy;
-                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
-            });
-        }
-
-        function draw() {
-            ctx.save();
-            if (shakeAmount > 0.5) ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            activeHunters.forEach(h => {
-                if(h.dead) return;
-                ctx.fillStyle = h.color; ctx.shadowBlur = 10; ctx.shadowColor = h.color;
-                ctx.fillRect(h.x - h.size/2, h.y - h.size/2, h.size, h.size);
-                ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
-                ctx.fillText(h.name, h.x, h.y + h.size + 10);
-            });
-            bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-4, b.y-4, 8, 8); });
-            ctx.shadowBlur = 20; ctx.shadowColor = "#00d2ff";
-            ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
-        }
-
-        function gameLoop() { if(gameActive) { update(); draw(); requestAnimationFrame(gameLoop); } }
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Müzikli Savaş</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
-        canvas { background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); display: block; cursor: crosshair; }
-        
-        .ui-container { position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none; }
-        .stats { font-size: 18px; background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border: 1px solid #444; }
-        
-        .ammo-bar { display: flex; gap: 5px; margin-top: 10px; align-items: center; }
-        .ammo-slot { width: 30px; height: 10px; background: #222; border: 1px solid #555; border-radius: 3px; overflow: hidden; }
-        .ammo-fill { height: 100%; background: #00d2ff; width: 0%; transition: width 0.1s; }
-        .ammo-ready { background: #f1c40f; box-shadow: 0 0 8px #f1c40f; width: 100% !important; }
-
-        .overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            background: rgba(0,0,0,0.9); z-index: 100; text-align: center;
-        }
-        
-        .btn { padding: 15px 50px; font-size: 24px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 50px; transition: 0.3s; }
-        .btn:hover { transform: scale(1.1); box-shadow: 0 0 30px #2ecc71; }
-    </style>
-</head>
-<body>
-
-    <div id="startScreen" class="overlay">
-        <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
-        <p>Ateş: Ok Tuşları | Hareket: Fare</p>
-        <button class="btn" onclick="startGame()">MÜZİĞİ AÇ VE BAŞLAT</button>
-    </div>
-
-    <div id="gameOver" class="overlay" style="display: none;">
-        <h1 style="color:#ff4757">OYUN BİTTİ</h1>
-        <p id="finalScore" style="font-size: 25px;"></p>
-        <button class="btn" style="background:#3498db;" onclick="location.reload()">TEKRAR DENE</button>
-    </div>
-
-    <div class="ui-container">
-        <div class="stats">
-            SKOR: <b id="score">0</b><br>
-            LEVEL: <b id="ui-level" style="color:#f1c40f">1</b>
-        </div>
-        <div class="ammo-bar">
-            <div class="ammo-slot"><div id="slot0" class="ammo-fill"></div></div>
-            <div class="ammo-slot"><div id="slot1" class="ammo-fill"></div></div>
-            <div class="ammo-slot"><div id="slot2" class="ammo-fill"></div></div>
-        </div>
-    </div>
-
-    <canvas id="gameCanvas"></canvas>
-
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const scoreEl = document.getElementById("score");
-        const levelEl = document.getElementById("ui-level");
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        let gameActive = false;
-        let score = 0;
-        let currentLevel = 1;
-        let speedMultiplier = 1;
-        let bullets = [];
-        let shakeAmount = 0;
-
-        // --- SES SİSTEMİ (Müzik ve Efektler) ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        function playTone(freq, type, duration, vol = 0.1) {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
-        }
-
-        function playMusic() {
-            if(!gameActive) return;
-            // Ritmik arka plan müziği
-            playTone(100 + (currentLevel * 10), 'triangle', 0.2, 0.05);
-            setTimeout(() => { if(gameActive) playTone(120 + (currentLevel * 10), 'triangle', 0.2, 0.05); }, 400);
-            setTimeout(playMusic, 800);
-        }
-        // ---------------------------------------
-
-        const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
-        const player = { x: canvas.width/2, y: canvas.height/2, size: 20 };
-        const hunterTemplates = [
-            { name: "Mert Hoca", color: "#ff4757", speed: 2.0 },
-            { name: "Kutay", color: "#ffa502", speed: 2.7 },
-            { name: "Ali", color: "#5352ed", speed: 3.3 },
-            { name: "Birce", color: "#ff9ff3", speed: 2.9 },
-            { name: "Cansu Hoca", color: "#ffffff", speed: 2.1 }
-        ];
-
-        let activeHunters = [];
-
-        function startGame() {
-            audioCtx.resume();
-            document.getElementById("startScreen").style.display = "none";
-            gameActive = true;
-            activeHunters = hunterTemplates.map(t => ({...t, x: Math.random()*canvas.width, y: -50, dead: false, size: 30}));
-            playMusic();
-            gameLoop();
-        }
-
-        window.addEventListener("keydown", e => {
-            if(!gameActive) return;
-            const slotIndex = ammoSlots.findIndex(s => s.ready);
-            if(e.key.startsWith("Arrow") && slotIndex !== -1) {
-                let vx=0, vy=0;
-                if(e.key === "ArrowUp") vy=-15;
-                if(e.key === "ArrowDown") vy=15;
-                if(e.key === "ArrowLeft") vx=-15;
-                if(e.key === "ArrowRight") vx=15;
-                
-                playTone(500, 'sine', 0.1); // Ateş sesi
-                bullets.push({x: player.x, y: player.y, vx, vy});
-                ammoSlots[slotIndex].ready = false;
-                ammoSlots[slotIndex].last = Date.now();
-            }
-        });
-
-        window.addEventListener("mousemove", e => { if(gameActive) { player.x = e.clientX; player.y = e.clientY; }});
-
-        function update() {
-            const now = Date.now();
-            if(shakeAmount > 0) shakeAmount *= 0.9;
-
-            ammoSlots.forEach((s, i) => {
-                const fill = document.getElementById("slot"+i);
-                if(!s.ready) {
-                    const progress = Math.min(((now - s.last)/1500)*100, 100);
-                    fill.style.width = progress + "%";
-                    if(progress >= 100) { s.ready = true; } 
-                } else { fill.style.width = "100%"; fill.classList.add("ammo-ready"); }
-            });
-
-            activeHunters.forEach(h => {
-                if(h.dead) return;
-                const angle = Math.atan2(player.y - h.y, player.x - h.x);
-                h.x += Math.cos(angle) * (h.speed * speedMultiplier);
-                h.y += Math.sin(angle) * (h.speed * speedMultiplier);
-
-                bullets.forEach((b, bi) => {
-                    if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
-                        h.dead = true; score += 50;
-                        playTone(150, 'sawtooth', 0.15); // Vurma sesi
-                        
-                        if(Math.floor(score/500) + 1 > currentLevel) {
-                            currentLevel++;
-                            speedMultiplier += 0.25;
-                            levelEl.innerText = currentLevel;
-                            shakeAmount = 15;
-                        }
-
-                        setTimeout(() => { h.dead = false; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
-                        bullets.splice(bi, 1);
-                        scoreEl.innerText = score;
-                    }
-                });
-
-                if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) {
-                    gameActive = false;
-                    playTone(60, 'square', 0.4); // Kaybetme sesi
-                    document.getElementById("gameOver").style.display = "flex";
-                    document.getElementById("finalScore").innerText = `SKOR: ${score}`;
+                    document.getElementById("finalScore").innerText = `SKOR: ${score} | LEVEL: ${currentLevel}`;
                 }
             });
 
