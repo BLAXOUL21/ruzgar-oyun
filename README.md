@@ -1,9 +1,14 @@
+Anlıyorum, kopyalarken bir şeyler eksik kalmış olabilir. İşte oyunun en güncel, sarsıntı efektli, kısıtlı mermili ve Emre karakterinin olduğu tam kodu.
+
+GitHub'daki index.html dosyasının içindeki her şeyi sil ve bu kodun tamamını (en başındaki <!DOCTYPE html> kısmından en sonundaki </html> kısmına kadar) yapıştır:
+
+HTML
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Tam Savunma - Kısıtlı Cephane</title>
+    <title>Rüzgar: Tam Savunma</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
         canvas { background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); display: block; cursor: crosshair; }
@@ -45,7 +50,6 @@
     <div id="startScreen" class="overlay">
         <h1>RÜZGAR'IN İNTİKAMI</h1>
         <p>Ateş: <b>Ok Tuşları</b> | Hareket: <b>Fare</b> | Mayın: <b>Sol Tık</b></p>
-        <p style="color: #f1c40f;">Dikkat: Mermin dolarken savunmasız kalırsın!</p>
         <button class="btn" onclick="startGame()">SAVAŞI BAŞLAT</button>
     </div>
 
@@ -55,7 +59,7 @@
         <button class="btn" style="background:#3498db;" onclick="location.reload()">TEKRAR DENE</button>
     </div>
 
-    <div id="subtitle-panel">Mühimmat Kontrol Ediliyor...</div>
+    <div id="subtitle-panel">Sistem Hazır...</div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -83,7 +87,7 @@
         let highScore = localStorage.getItem("ruzgar_highscore") || 0;
         highscoreEl.innerText = highScore;
 
-        const RECHARGE_TIME = 1500; // 1.5 saniyede bir mermi dolar
+        const RECHARGE_TIME = 1500;
         const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
         const player = { x: canvas.width/2, y: canvas.height/2, size: 18 };
 
@@ -102,13 +106,7 @@
 
         function createParticles(x, y, color, count = 10, speedMul = 1) {
             for(let i=0; i<count; i++) {
-                particles.push({
-                    x, y, 
-                    vx: (Math.random()-0.5)*10*speedMul, 
-                    vy: (Math.random()-0.5)*10*speedMul, 
-                    life: 1.0, 
-                    color 
-                });
+                particles.push({ x, y, vx: (Math.random()-0.5)*10*speedMul, vy: (Math.random()-0.5)*10*speedMul, life: 1.0, color });
             }
         }
 
@@ -130,56 +128,42 @@
 
         window.addEventListener("keydown", e => {
             if(!gameActive) return;
-            
-            // Hazır olan ilk slotu bul
             const slotIndex = ammoSlots.findIndex(s => s.ready);
-            
             if(e.key.startsWith("Arrow")) {
-                if(slotIndex !== -1) { // Eğer hazır mermi varsa
+                if(slotIndex !== -1) {
                     let vx=0, vy=0;
                     if(e.key === "ArrowUp") vy=-12;
                     if(e.key === "ArrowDown") vy=12;
                     if(e.key === "ArrowLeft") vx=-12;
                     if(e.key === "ArrowRight") vx=12;
-
                     bullets.push({x: player.x, y: player.y, vx, vy});
                     muzzleFlashes.push({ x: player.x, y: player.y, vx, vy, life: 1.0 });
                     createParticles(player.x, player.y, "#f1c40f", 5, 0.5);
-
-                    // Slotu kullan ve doldurmaya başla
                     ammoSlots[slotIndex].ready = false;
                     ammoSlots[slotIndex].last = Date.now();
                     ammoContainer.classList.remove("no-ammo");
-                } else {
-                    // Mermi yoksa uyarı ver
-                    ammoContainer.classList.add("no-ammo");
-                }
+                } else { ammoContainer.classList.add("no-ammo"); }
             }
         });
+
+        function updateSubtitle(name, quote, color) {
+            subtitlePanel.style.color = color;
+            subtitlePanel.innerHTML = `<span style="opacity: 0.7">${name}:</span> "${quote}"`;
+        }
 
         function update() {
             const now = Date.now();
             const elapsedSec = Math.floor((now - startTime) / 1000);
             timerEl.innerText = elapsedSec;
-
             if(shakeAmount > 0) shakeAmount *= 0.9;
 
-            // Mermi Slotlarını Yenileme
-            let allEmpty = true;
             ammoSlots.forEach((s, i) => {
                 const fill = document.getElementById("slot"+i);
                 if(!s.ready) {
                     const progress = Math.min(((now - s.last)/RECHARGE_TIME)*100, 100);
                     fill.style.width = progress + "%";
-                    fill.classList.remove("ammo-ready");
-                    if(progress >= 100) {
-                        s.ready = true;
-                    }
-                } else {
-                    fill.style.width = "100%";
-                    fill.classList.add("ammo-ready");
-                    allEmpty = false;
-                }
+                    if(progress >= 100) s.ready = true;
+                } else { fill.style.width = "100%"; fill.classList.add("ammo-ready"); }
             });
 
             if (now - lastSubtitleUpdate > 2500) {
@@ -191,14 +175,8 @@
                 lastSubtitleUpdate = now;
             }
 
-            particles.forEach((p, i) => {
-                p.x += p.vx; p.y += p.vy; p.life -= 0.025;
-                if(p.life <= 0) particles.splice(i, 1);
-            });
-            muzzleFlashes.forEach((f, i) => {
-                f.life -= 0.15;
-                if(f.life <= 0) muzzleFlashes.splice(i, 1);
-            });
+            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.025; if(p.life <= 0) particles.splice(i, 1); });
+            muzzleFlashes.forEach((f, i) => { f.life -= 0.15; if(f.life <= 0) muzzleFlashes.splice(i, 1); });
 
             activeHunters.forEach(h => {
                 if(h.dead) return;
@@ -218,8 +196,7 @@
 
                 mines.forEach((m, mi) => {
                     if(Math.hypot(m.x - h.x, m.y - h.y) < h.size + 12) {
-                        h.dead = true; score += 20;
-                        shakeAmount = 15;
+                        h.dead = true; score += 20; shakeAmount = 15;
                         createParticles(h.x, h.y, "#ff4500", 30, 2.5);
                         respawnQueue.push({h, time: now});
                         mines.splice(mi, 1);
@@ -243,7 +220,7 @@
 
             respawnQueue.forEach((rq, i) => {
                 if(now - rq.time >= 3000) {
-                    rq.h.dead = false; rq.h.x = canvas.width/2; rq.h.y = canvas.height/2;
+                    rq.h.dead = false; rq.h.x = Math.random()*canvas.width; rq.h.y = -50;
                     respawnQueue.splice(i, 1);
                 }
             });
@@ -251,16 +228,10 @@
 
         function draw() {
             ctx.save();
-            if (shakeAmount > 0.5) {
-                ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
-            }
-
+            if (shakeAmount > 0.5) ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
             ctx.clearRect(-50, -50, canvas.width+100, canvas.height+100);
             
-            particles.forEach(p => {
-                ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
-                ctx.fillRect(p.x, p.y, 4, 4);
-            });
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); });
             ctx.globalAlpha = 1;
 
             muzzleFlashes.forEach(f => {
@@ -285,16 +256,9 @@
             });
 
             bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-3, b.y-3, 6, 6); });
-
             ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
-            
             ctx.restore();
-        }
-
-        function updateSubtitle(name, quote, color) {
-            subtitlePanel.style.color = color;
-            subtitlePanel.innerHTML = `<span style="opacity: 0.7">${name}:</span> "${quote}"`;
         }
 
         function gameLoop() {
