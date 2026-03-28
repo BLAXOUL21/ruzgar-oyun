@@ -3,25 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Hızlı Seviye</title>
+    <title>Rüzgar: Mayınlar Döndü</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
         canvas { background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); display: block; cursor: crosshair; }
-        
         .ui-container { position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none; }
         .stats { font-size: 18px; background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border: 1px solid #444; }
-        
         .ammo-bar { display: flex; gap: 5px; margin-top: 10px; align-items: center; }
         .ammo-slot { width: 30px; height: 10px; background: #222; border: 1px solid #555; border-radius: 3px; overflow: hidden; }
         .ammo-fill { height: 100%; background: #00d2ff; width: 0%; transition: width 0.1s; }
         .ammo-ready { background: #f1c40f; box-shadow: 0 0 8px #f1c40f; width: 100% !important; }
-
-        .overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            background: rgba(0,0,0,0.9); z-index: 100; text-align: center;
-        }
-        
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; text-align: center; }
         .btn { padding: 15px 50px; font-size: 24px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 50px; transition: 0.3s; }
         .btn:hover { transform: scale(1.1); box-shadow: 0 0 30px #2ecc71; }
     </style>
@@ -30,8 +22,7 @@
 
     <div id="startScreen" class="overlay">
         <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
-        <p>Ateş: Ok Tuşları | Hareket: Fare</p>
-        <p style="color: #f1c40f;">Her 300 skorda bir Level Atlarsın!</p>
+        <p>Ateş: <b>Ok Tuşları</b> | Hareket: <b>Fare</b> | Mayın: <b>Sol Tık</b></p>
         <button class="btn" onclick="startGame()">SAVAŞI BAŞLAT</button>
     </div>
 
@@ -43,8 +34,8 @@
 
     <div class="ui-container">
         <div class="stats">
-            SKOR: <b id="score">0</b><br>
-            LEVEL: <b id="ui-level" style="color:#f1c40f">1</b>
+            SKOR: <b id="score">0</b> | LEVEL: <b id="ui-level" style="color:#f1c40f">1</b><br>
+            MAYIN: <b id="mineCount">5</b>
         </div>
         <div class="ammo-bar">
             <div class="ammo-slot"><div id="slot0" class="ammo-fill"></div></div>
@@ -60,6 +51,7 @@
         const ctx = canvas.getContext("2d");
         const scoreEl = document.getElementById("score");
         const levelEl = document.getElementById("ui-level");
+        const mineCountEl = document.getElementById("mineCount");
         
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -69,10 +61,10 @@
         let currentLevel = 1;
         let speedMultiplier = 1;
         let bullets = [];
+        let mines = [];
         let shakeAmount = 0;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
         function playTone(freq, type, duration, vol = 0.1) {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -80,10 +72,8 @@
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
             gain.gain.setValueAtTime(vol, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
         }
 
         const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
@@ -106,16 +96,21 @@
             gameLoop();
         }
 
+        window.addEventListener("mousedown", e => {
+            if(gameActive && e.button === 0 && mines.length < 5) {
+                mines.push({x: player.x, y: player.y});
+                mineCountEl.innerText = 5 - mines.length;
+                playTone(200, 'sine', 0.1); // Mayın bırakma sesi
+            }
+        });
+
         window.addEventListener("keydown", e => {
             if(!gameActive) return;
             const slotIndex = ammoSlots.findIndex(s => s.ready);
             if(e.key.startsWith("Arrow") && slotIndex !== -1) {
                 let vx=0, vy=0;
-                if(e.key === "ArrowUp") vy=-15;
-                if(e.key === "ArrowDown") vy=15;
-                if(e.key === "ArrowLeft") vx=-15;
-                if(e.key === "ArrowRight") vx=15;
-                
+                if(e.key === "ArrowUp") vy=-15; if(e.key === "ArrowDown") vy=15;
+                if(e.key === "ArrowLeft") vx=-15; if(e.key === "ArrowRight") vx=15;
                 playTone(500, 'sine', 0.1); 
                 bullets.push({x: player.x, y: player.y, vx, vy});
                 ammoSlots[slotIndex].ready = false;
@@ -148,18 +143,24 @@
                     if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
                         h.dead = true; score += 50;
                         playTone(150, 'sawtooth', 0.15); 
-                        
-                        // LEVEL UP KONTROLÜ (300 PUANDA BİR)
                         if(Math.floor(score/300) + 1 > currentLevel) {
-                            currentLevel++;
-                            speedMultiplier += 0.3; // %30 hızlanma
-                            levelEl.innerText = currentLevel;
-                            shakeAmount = 15;
-                            playTone(400, 'sine', 0.3); // Level up sesi
+                            currentLevel++; speedMultiplier += 0.3;
+                            levelEl.innerText = currentLevel; shakeAmount = 15;
                         }
-
                         setTimeout(() => { h.dead = false; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
                         bullets.splice(bi, 1);
+                        scoreEl.innerText = score;
+                    }
+                });
+
+                mines.forEach((m, mi) => {
+                    if(Math.hypot(m.x - h.x, m.y - h.y) < h.size + 15) {
+                        h.dead = true; score += 70;
+                        shakeAmount = 25;
+                        playTone(80, 'sawtooth', 0.3); // Mayın patlama sesi
+                        mines.splice(mi, 1);
+                        mineCountEl.innerText = 5 - mines.length;
+                        setTimeout(() => { h.dead = false; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
                         scoreEl.innerText = score;
                     }
                 });
@@ -168,7 +169,7 @@
                     gameActive = false;
                     playTone(60, 'square', 0.4); 
                     document.getElementById("gameOver").style.display = "flex";
-                    document.getElementById("finalScore").innerText = `SKOR: ${score} | LEVEL: ${currentLevel}`;
+                    document.getElementById("finalScore").innerText = `SKOR: ${score}`;
                 }
             });
 
@@ -182,6 +183,13 @@
             ctx.save();
             if (shakeAmount > 0.5) ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            mines.forEach(m => {
+                ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.arc(m.x, m.y, 10, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = (Date.now() % 400 < 200) ? "red" : "black";
+                ctx.beginPath(); ctx.arc(m.x, m.y, 4, 0, Math.PI*2); ctx.fill();
+            });
+
             activeHunters.forEach(h => {
                 if(h.dead) return;
                 ctx.fillStyle = h.color; ctx.shadowBlur = 10; ctx.shadowColor = h.color;
