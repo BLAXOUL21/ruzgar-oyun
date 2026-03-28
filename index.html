@@ -7,8 +7,12 @@
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
         canvas { background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); display: block; cursor: crosshair; }
+        
+        /* UI Paneli */
         .ui-container { position: absolute; top: 10px; left: 10px; z-index: 5; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
         .stats { font-size: 18px; text-shadow: 2px 2px 4px black; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; border: 1px solid #444; }
+        
+        /* Alt Yazı Paneli */
         #subtitle-panel {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             width: 80%; max-width: 600px; background: rgba(0, 0, 0, 0.7);
@@ -16,19 +20,51 @@
             text-align: center; font-size: 20px; font-weight: bold; min-height: 30px;
             box-shadow: 0 0 15px rgba(0, 210, 255, 0.3); pointer-events: none;
         }
+
+        /* Cephane Barı */
         .ammo-bar { display: flex; gap: 5px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; align-items: center; }
         .ammo-slot { width: 35px; height: 12px; background: #222; border: 1px solid #555; position: relative; overflow: hidden; border-radius: 3px; }
         .ammo-fill { height: 100%; background: #00d2ff; width: 0%; transition: background 0.3s; }
         .ammo-ready { background: #f1c40f; box-shadow: 0 0 10px #f1c40f; width: 100% !important; }
+
+        /* Overlays (Başlangıç ve Bitiş Ekranları) */
+        .overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            background: rgba(0,0,0,0.85); z-index: 100; text-align: center;
+            backdrop-filter: blur(5px); transition: opacity 0.5s;
+        }
+        
+        h1 { font-size: 60px; margin-bottom: 10px; color: #00d2ff; text-shadow: 0 0 20px rgba(0, 210, 255, 0.5); }
+        p { font-size: 20px; margin-bottom: 30px; color: #ccc; }
+        b { color: #ff4757; }
+
+        .btn { 
+            padding: 15px 50px; font-size: 24px; cursor: pointer; 
+            background: #2ecc71; border: none; color: white; font-weight: bold; 
+            border-radius: 50px; transition: 0.3s; box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+        }
+        .btn:hover { transform: scale(1.1); box-shadow: 0 0 30px #2ecc71; }
+        
         .no-ammo { border-color: #ff4757 !important; animation: blink 0.5s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; text-align: center; }
-        .btn { padding: 15px 40px; font-size: 22px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 50px; transition: 0.3s; margin-top: 20px; }
-        .btn:hover { transform: scale(1.1); box-shadow: 0 0 20px #2ecc71; }
-        b { color: #ff4757; }
     </style>
 </head>
 <body>
+
+    <div id="startScreen" class="overlay">
+        <h1>RÜZGAR'IN İNTİKAMI</h1>
+        <p>Ateş: <b>Yön Tuşları</b> | Hareket: <b>Fare</b> | Mayın: <b>Sol Tık</b></p>
+        <p style="font-size: 16px; color: #888;">Cephaneni idareli kullan, mermiler zamanla dolar!</p>
+        <button class="btn" onclick="startGame()">SAVAŞI BAŞLAT</button>
+    </div>
+
+    <div id="gameOver" class="overlay" style="display: none;">
+        <h1 style="color:#ff4757">YAKALANDIN!</h1>
+        <p id="finalScore" style="font-size: 30px; font-weight: bold; color: white;"></p>
+        <button class="btn" style="background:#3498db;" onclick="location.reload()">TEKRAR DENE</button>
+    </div>
+
     <div class="ui-container">
         <div class="stats">
             REKOR: <b id="ui-highscore">0</b> | SKOR: <b id="score">0</b><br>
@@ -41,18 +77,10 @@
             <div class="ammo-slot"><div id="slot2" class="ammo-fill"></div></div>
         </div>
     </div>
-    <div id="startScreen" class="overlay">
-        <h1>RÜZGAR'IN İNTİKAMI</h1>
-        <p>Ateş: <b>Ok Tuşları</b> | Hareket: <b>Fare</b> | Mayın: <b>Sol Tık</b></p>
-        <button class="btn" onclick="startGame()">SAVAŞI BAŞLAT</button>
-    </div>
-    <div id="gameOver" class="overlay" style="display: none;">
-        <h1 style="color:#ff4757">YAKALANDIN!</h1>
-        <p id="finalScore" style="font-size: 24px;"></p>
-        <button class="btn" style="background:#3498db;" onclick="location.reload()">TEKRAR DENE</button>
-    </div>
+
     <div id="subtitle-panel">Sistem Hazır...</div>
     <canvas id="gameCanvas"></canvas>
+
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
@@ -62,8 +90,10 @@
         const subtitlePanel = document.getElementById("subtitle-panel");
         const highscoreEl = document.getElementById("ui-highscore");
         const ammoContainer = document.getElementById("ammo-container");
+        
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+
         let gameActive = false;
         let score = 0;
         let startTime;
@@ -75,9 +105,11 @@
         let lastSubtitleUpdate = 0;
         let highScore = localStorage.getItem("ruzgar_highscore") || 0;
         highscoreEl.innerText = highScore;
+
         const RECHARGE_TIME = 1500;
         const ammoSlots = [{ready:true, last:0}, {ready:true, last:0}, {ready:true, last:0}];
         const player = { x: canvas.width/2, y: canvas.height/2, size: 18 };
+
         const hunterTemplates = [
             { name: "Mert Hoca", quote: "Gülme artık!", color: "#ff4757", speed: 2.0, size: 30 },
             { name: "Kutay", quote: "Sahada zencooo!", color: "#ffa502", speed: 2.7, size: 28 },
@@ -87,20 +119,24 @@
             { name: "Cansu Hoca", quote: "Ciddiyet!", color: "#ffffff", speed: 2.1, size: 35 },
             { name: "Emre", quote: "seni zorbalıycam!", color: "#8e44ad", speed: 2.5, size: 30 } 
         ];
+
         let activeHunters = [];
         let respawnQueue = [];
+
         function createParticles(x, y, color, count = 10, speedMul = 1) {
             for(let i=0; i<count; i++) {
                 particles.push({ x, y, vx: (Math.random()-0.5)*10*speedMul, vy: (Math.random()-0.5)*10*speedMul, life: 1.0, color });
             }
         }
+
         function startGame() {
             document.getElementById("startScreen").style.display = "none";
             gameActive = true;
             startTime = Date.now();
-            activeHunters = hunterTemplates.map(t => ({...t, x: Math.random()*canvas.width, y: -50, dead: false}));
+            activeHunters = hunterTemplates.map(t => ({...t, x: Math.random()*canvas.width, y: -100, dead: false}));
             gameLoop();
         }
+
         window.addEventListener("mousemove", e => { if(gameActive) { player.x = e.clientX; player.y = e.clientY; }});
         window.addEventListener("mousedown", e => {
             if(gameActive && e.button === 0 && mines.length < 5) {
@@ -108,6 +144,7 @@
                 mineCountEl.innerText = 5 - mines.length;
             }
         });
+
         window.addEventListener("keydown", e => {
             if(!gameActive) return;
             const slotIndex = ammoSlots.findIndex(s => s.ready);
@@ -123,42 +160,48 @@
                     createParticles(player.x, player.y, "#f1c40f", 5, 0.5);
                     ammoSlots[slotIndex].ready = false;
                     ammoSlots[slotIndex].last = Date.now();
-                    ammoContainer.classList.remove("no-ammo");
-                } else { ammoContainer.classList.add("no-ammo"); }
+                } else {
+                    ammoContainer.classList.add("no-ammo");
+                    setTimeout(() => ammoContainer.classList.remove("no-ammo"), 500);
+                }
             }
         });
-        function updateSubtitle(name, quote, color) {
-            subtitlePanel.style.color = color;
-            subtitlePanel.innerHTML = `<span style="opacity: 0.7">${name}:</span> "${quote}"`;
-        }
+
         function update() {
             const now = Date.now();
             const elapsedSec = Math.floor((now - startTime) / 1000);
             timerEl.innerText = elapsedSec;
             if(shakeAmount > 0) shakeAmount *= 0.9;
+
             ammoSlots.forEach((s, i) => {
                 const fill = document.getElementById("slot"+i);
                 if(!s.ready) {
                     const progress = Math.min(((now - s.last)/RECHARGE_TIME)*100, 100);
                     fill.style.width = progress + "%";
+                    fill.classList.remove("ammo-ready");
                     if(progress >= 100) s.ready = true;
                 } else { fill.style.width = "100%"; fill.classList.add("ammo-ready"); }
             });
+
             if (now - lastSubtitleUpdate > 2500) {
                 const aliveOnes = activeHunters.filter(h => !h.dead);
                 if (aliveOnes.length > 0) {
                     const h = aliveOnes[Math.floor(Math.random() * aliveOnes.length)];
-                    updateSubtitle(h.name, h.quote, h.color);
+                    subtitlePanel.style.color = h.color;
+                    subtitlePanel.innerHTML = `<span style="opacity: 0.7">${h.name}:</span> "${h.quote}"`;
                 }
                 lastSubtitleUpdate = now;
             }
+
             particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.025; if(p.life <= 0) particles.splice(i, 1); });
             muzzleFlashes.forEach((f, i) => { f.life -= 0.15; if(f.life <= 0) muzzleFlashes.splice(i, 1); });
+
             activeHunters.forEach(h => {
                 if(h.dead) return;
                 const angle = Math.atan2(player.y - h.y, player.x - h.x);
                 h.x += Math.cos(angle) * (h.speed + elapsedSec*0.04);
                 h.y += Math.sin(angle) * (h.speed + elapsedSec*0.04);
+
                 bullets.forEach((b, bi) => {
                     if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
                         h.dead = true; score += 10;
@@ -168,27 +211,31 @@
                         scoreEl.innerText = score;
                     }
                 });
+
                 mines.forEach((m, mi) => {
-                    if(Math.hypot(m.x - h.x, m.y - h.y) < h.size + 12) {
-                        h.dead = true; score += 20; shakeAmount = 15;
-                        createParticles(h.x, h.y, "#ff4500", 30, 2.5);
+                    if(Math.hypot(m.x - h.x, m.y - h.y) < h.size + 15) {
+                        h.dead = true; score += 20; shakeAmount = 20;
+                        createParticles(h.x, h.y, "#ff4500", 30, 2);
                         respawnQueue.push({h, time: now});
                         mines.splice(mi, 1);
                         mineCountEl.innerText = 5 - mines.length;
                         scoreEl.innerText = score;
                     }
                 });
+
                 if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) {
                     gameActive = false;
                     if(score > highScore) localStorage.setItem("ruzgar_highscore", score);
                     document.getElementById("gameOver").style.display = "flex";
-                    document.getElementById("finalScore").innerText = `Skor: ${score} | Süre: ${elapsedSec}s`;
+                    document.getElementById("finalScore").innerText = `TOPLAM SKOR: ${score}`;
                 }
             });
+
             bullets.forEach((b, i) => {
                 b.x += b.vx; b.y += b.vy;
                 if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
             });
+
             respawnQueue.forEach((rq, i) => {
                 if(now - rq.time >= 3000) {
                     rq.h.dead = false; rq.h.x = Math.random()*canvas.width; rq.h.y = -50;
@@ -196,35 +243,42 @@
                 }
             });
         }
+
         function draw() {
             ctx.save();
             if (shakeAmount > 0.5) ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
             ctx.clearRect(-50, -50, canvas.width+100, canvas.height+100);
+            
             particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); });
             ctx.globalAlpha = 1;
+
             muzzleFlashes.forEach(f => {
                 ctx.save(); ctx.translate(f.x, f.y); ctx.globalAlpha = f.life;
-                ctx.fillStyle = "rgba(255, 255, 100, 0.7)";
+                ctx.fillStyle = "yellow";
                 ctx.rotate(Math.atan2(f.vy, f.vx));
-                ctx.beginPath(); ctx.arc(15, 0, 12 * f.life, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(15, 0, 10 * f.life, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
             });
+
             mines.forEach(m => { 
                 ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.arc(m.x, m.y, 10, 0, Math.PI*2); ctx.fill(); 
                 ctx.fillStyle = (Date.now() % 400 < 200) ? "red" : "black"; 
                 ctx.beginPath(); ctx.arc(m.x, m.y, 4, 0, Math.PI*2); ctx.fill();
             });
+
             activeHunters.forEach(h => {
                 if(h.dead) return;
                 ctx.fillStyle = h.color; ctx.fillRect(h.x - h.size/2, h.y - h.size/2, h.size, h.size);
                 ctx.fillStyle = "white"; ctx.font = "bold 12px Arial";
                 ctx.textAlign = "center"; ctx.fillText(h.name, h.x, h.y + h.size + 5);
             });
+
             bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-3, b.y-3, 6, 6); });
             ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
             ctx.restore();
         }
+
         function gameLoop() {
             if(gameActive) { update(); draw(); requestAnimationFrame(gameLoop); }
         }
