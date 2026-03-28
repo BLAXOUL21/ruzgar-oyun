@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rüzgar: Tam Görünmezlik</title>
+    <title>Rüzgar: Tank Saldırısı</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; transition: background 0.8s; }
         canvas { display: block; cursor: crosshair; }
@@ -30,7 +30,7 @@
     <div id="startScreen" class="overlay">
         <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
         <p>Ateş: <b>Ok Tuşları</b> | Mayın: <b>Sol Tık</b></p>
-        <p style="color:#f1c40f">Dikkat: Bazıları 2 saniye boyunca tamamen kaybolur!</p>
+        <p style="color:#e74c3c">UYARI: Tank Mert 10 saniyede bir ateş eder!</p>
         <button class="btn" onclick="startGame()">SAVAŞI BAŞLAT</button>
     </div>
 
@@ -71,6 +71,7 @@
         let currentLevel = 1;
         let speedMultiplier = 1;
         let bullets = [];
+        let enemyBullets = []; // Düşman mermileri için yeni liste
         let mines = [];
         let shakeAmount = 0;
         const bgColors = ["#050505", "#1e0b0b", "#0b1e0b", "#0b0b1e", "#1e1e0b"];
@@ -91,12 +92,12 @@
         const player = { x: canvas.width/2, y: canvas.height/2, size: 20 };
         
         const hunterTemplates = [
-            { name: "Tank Mert", quote: "Çok yavaş ama yıkılmaz!", color: "#c0392b", speed: 0.8, maxHp: 3, type: 'tank', size: 45 },
-            { name: "Görünmez Kutay", quote: "Neredeyim, bul bakalım!", color: "#ffa502", speed: 2.7, maxHp: 1, type: 'invisible' },
-            { name: "Işınlanan Ali", quote: "Beni asla vuramazsın!", color: "#5352ed", speed: 2.2, maxHp: 1, type: 'teleport' },
+            { name: "Tank Mert", quote: "Ateş serbest!", color: "#c0392b", speed: 0.8, maxHp: 3, type: 'tank', size: 45 },
+            { name: "Görünmez Kutay", quote: "Beni göremezsin!", color: "#ffa502", speed: 2.7, maxHp: 1, type: 'invisible' },
+            { name: "Işınlanan Ali", quote: "Zıplıyorum!", color: "#5352ed", speed: 2.2, maxHp: 1, type: 'teleport' },
             { name: "Zorba Emre", quote: "Seni zorbalıycam!", color: "#8e44ad", speed: 2.5, maxHp: 2, type: 'normal' },
-            { name: "Birce", quote: "Bana Gökçe deme!", color: "#ff9ff3", speed: 2.9, maxHp: 1, type: 'normal' },
-            { name: "Cansu Hoca", quote: "Ciddiyet lütfen!", color: "#ffffff", speed: 2.1, maxHp: 2, type: 'normal' }
+            { name: "Birce", quote: "Adım Birce!", color: "#ff9ff3", speed: 2.9, maxHp: 1, type: 'normal' },
+            { name: "Cansu Hoca", quote: "Sessizlik!", color: "#ffffff", speed: 2.1, maxHp: 2, type: 'normal' }
         ];
 
         let activeHunters = [];
@@ -112,7 +113,8 @@
                 size: t.size || 30,
                 opacity: 1,
                 lastTeleport: Date.now(),
-                lastInvisChange: Date.now()
+                lastInvisChange: Date.now(),
+                lastShot: Date.now() // Tank için ateş sayacı
             }));
             gameLoop();
         }
@@ -157,10 +159,22 @@
             activeHunters.forEach(h => {
                 if(h.dead) return;
 
-                // --- GÖRÜNMEZLİK MANTIĞI: 2 Saniye Tam Kapalı, 2 Saniye Açık ---
+                // --- TANK ATEŞ ETME MANTIĞI (10 Saniyede Bir) ---
+                if(h.type === 'tank' && now - h.lastShot > 10000) {
+                    const angle = Math.atan2(player.y - h.y, player.x - h.x);
+                    enemyBullets.push({
+                        x: h.x, y: h.y, 
+                        vx: Math.cos(angle) * 5, 
+                        vy: Math.sin(angle) * 5,
+                        size: 10
+                    });
+                    h.lastShot = now;
+                    playTone(150, 'triangle', 0.3, 0.2); // Tank ateş sesi
+                }
+
                 if(h.type === 'invisible') {
                     const cycle = (now - h.lastInvisChange) % 4000;
-                    h.opacity = cycle < 2000 ? 0 : 1; // İlk 2 saniye tamamen görünmez
+                    h.opacity = cycle < 2000 ? 0 : 1;
                 }
                 
                 if(h.type === 'teleport' && now - h.lastTeleport > 3000) {
@@ -189,7 +203,11 @@
                             levelEl.innerText = currentLevel;
                             document.body.style.background = bgColors[currentLevel % bgColors.length];
                         }
-                        setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.x = Math.random()*canvas.width; h.y = -50; }, 2000);
+                        setTimeout(() => { 
+                            h.dead = false; h.hp = h.maxHp; 
+                            h.x = Math.random()*canvas.width; h.y = -50; 
+                            h.lastShot = Date.now(); // Respawn olunca süreyi sıfırla
+                        }, 2000);
                         scoreEl.innerText = score;
                     }
                 };
@@ -208,17 +226,30 @@
                 });
 
                 if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) {
-                    gameActive = false;
-                    playTone(60, 'square', 0.5);
-                    document.getElementById("gameOver").style.display = "flex";
-                    document.getElementById("finalScore").innerText = `SKOR: ${score}`;
+                    gameOver();
                 }
+            });
+
+            // Düşman mermilerini güncelle
+            enemyBullets.forEach((eb, i) => {
+                eb.x += eb.vx; eb.y += eb.vy;
+                if(Math.hypot(eb.x - player.x, eb.y - player.y) < player.size + eb.size/2) {
+                    gameOver();
+                }
+                if(eb.x < 0 || eb.x > canvas.width || eb.y < 0 || eb.y > canvas.height) enemyBullets.splice(i, 1);
             });
 
             bullets.forEach((b, i) => {
                 b.x += b.vx; b.y += b.vy;
-                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, i);
+                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
             });
+        }
+
+        function gameOver() {
+            gameActive = false;
+            playTone(60, 'square', 0.5);
+            document.getElementById("gameOver").style.display = "flex";
+            document.getElementById("finalScore").innerText = `SKOR: ${score}`;
         }
 
         function draw() {
@@ -231,7 +262,7 @@
             });
 
             activeHunters.forEach(h => {
-                if(h.dead || h.opacity === 0) return; // Tam görünmezken çizme
+                if(h.dead || (h.type === 'invisible' && h.opacity === 0)) return;
                 
                 ctx.fillStyle = h.color;
                 ctx.shadowBlur = 10; ctx.shadowColor = h.color;
@@ -248,6 +279,12 @@
 
                 ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
                 ctx.fillText(h.name, h.x, h.y + h.size/2 + 15);
+            });
+
+            // Düşman mermilerini çiz (Kırmızı enerji topları)
+            enemyBullets.forEach(eb => {
+                ctx.fillStyle = "#ff4757"; ctx.shadowBlur = 15; ctx.shadowColor = "red";
+                ctx.beginPath(); ctx.arc(eb.x, eb.y, eb.size/2, 0, Math.PI*2); ctx.fill();
             });
 
             bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-4, b.y-4, 8, 8); });
