@@ -3,55 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rüzgar: Multi-Platform</title>
+    <title>Rüzgar: Efsane Geri Döndü</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; transition: background 1s; }
-        canvas { display: block; }
+        canvas { display: block; cursor: crosshair; }
         
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; text-align: center; }
-        .btn-group { display: flex; gap: 20px; margin-top: 20px; }
-        .btn { padding: 15px 30px; font-size: 20px; cursor: pointer; background: #3498db; border: none; color: white; font-weight: bold; border-radius: 10px; transition: 0.2s; }
+        .btn { padding: 15px 40px; font-size: 22px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 50px; margin: 10px; transition: 0.3s; box-shadow: 0 0 15px #2ecc71; }
         .btn:hover { transform: scale(1.1); }
-        .btn.mobile { background: #e67e22; }
 
-        /* Mobil Kontroller */
-        #mobile-controls { position: absolute; bottom: 30px; left: 0; width: 100%; display: none; justify-content: space-between; padding: 0 40px; box-sizing: border-box; z-index: 50; pointer-events: none; }
-        .joystick-base { width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; position: relative; pointer-events: auto; }
-        .joystick-stick { width: 60px; height: 60px; background: rgba(0, 210, 255, 0.5); border-radius: 50%; position: absolute; top: 30px; left: 30px; }
-        .fire-btn { width: 100px; height: 100px; background: rgba(231, 76, 60, 0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; pointer-events: auto; }
+        #subtitle-panel {
+            position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
+            width: 80%; max-width: 600px; background: rgba(0, 0, 0, 0.8);
+            border-top: 3px solid #00d2ff; padding: 15px; border-radius: 15px;
+            text-align: center; font-size: 22px; font-weight: bold; min-height: 40px; z-index: 5;
+        }
 
-        .ui-container { position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none; }
-        .stats { font-size: 16px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; border: 1px solid #444; }
-        #warning-overlay { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: 40px; color: #ff4757; font-weight: bold; display: none; z-index: 60; }
+        /* Mobil UI */
+        #mobile-ui { position: absolute; bottom: 20px; left: 0; width: 100%; display: none; justify-content: space-between; padding: 0 30px; box-sizing: border-box; z-index: 50; pointer-events: none; }
+        .m-btn { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; pointer-events: auto; font-size: 14px; text-align: center; border: 2px solid white; }
+        #m-fire { background: rgba(231, 76, 60, 0.7); }
+        #m-mine { background: rgba(243, 156, 18, 0.7); }
+
+        .ui-top { position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none; }
+        .stats { font-size: 18px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 12px; border: 1px solid #00d2ff; }
+        #warning { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; color: #ff4757; font-weight: bold; display: none; text-shadow: 0 0 30px red; z-index: 200; }
     </style>
 </head>
 <body>
 
     <div id="startScreen" class="overlay">
-        <h1 style="color:#00d2ff">RÜZGAR'IN İNTİKAMI</h1>
-        <p>Cihazınızı Seçin:</p>
-        <div class="btn-group">
-            <button class="btn" onclick="initGame('pc')">BİLGİSAYAR</button>
-            <button class="btn mobile" onclick="initGame('mobile')">MOBİL</button>
-        </div>
+        <h1 style="color:#00d2ff; font-size: 40px;">RÜZGAR'IN İNTİKAMI</h1>
+        <p>Hangi Cihazla Savaşacaksın?</p>
+        <button class="btn" onclick="init('pc')">BİLGİSAYAR</button>
+        <button class="btn" style="background:#e67e22; box-shadow: 0 0 15px #e67e22;" onclick="init('mobile')">MOBİL</button>
     </div>
 
     <div id="gameOver" class="overlay" style="display: none;">
         <h1 style="color:#ff4757">YAKALANDIN!</h1>
-        <p id="finalScore" style="font-size: 25px;"></p>
-        <button class="btn" onclick="location.reload()">TEKRAR DENE</button>
+        <p id="finalScore" style="font-size: 30px;"></p>
+        <button class="btn" style="background:#3498db; box-shadow: 0 0 15px #3498db;" onclick="location.reload()">TEKRAR BAŞLA</button>
     </div>
 
-    <div id="mobile-controls">
-        <div id="joyBase" class="joystick-base"><div id="joyStick" class="joystick-stick"></div></div>
-        <div class="fire-btn" id="fireBtn">ATEŞ!</div>
+    <div id="warning">HAREKET ETME!</div>
+    <div id="subtitle-panel">Sistem Beklemede...</div>
+
+    <div id="mobile-ui">
+        <div class="m-btn" id="m-mine">MAYIN<br>(Sol)</div>
+        <div class="m-btn" id="m-fire">ATEŞ<br>(Üst)</div>
     </div>
 
-    <div id="warning-overlay">HAREKET ETME!</div>
-
-    <div class="ui-container">
+    <div class="ui-top">
         <div class="stats">
-            SKOR: <b id="score">0</b> | LEVEL: <b id="ui-level" style="color:#f1c40f">1</b>
+            SKOR: <b id="score">0</b> | LEVEL: <b id="ui-level" style="color:#f1c40f">1</b><br>
+            MAYIN: <b id="mineCount">5</b>
         </div>
     </div>
 
@@ -60,166 +65,197 @@
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        const scoreEl = document.getElementById("score");
-        const levelEl = document.getElementById("ui-level");
-        const warningEl = document.getElementById("warning-overlay");
-
+        const subtitle = document.getElementById("subtitle-panel");
+        const warning = document.getElementById("warning");
+        
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let gameActive = false;
-        let device = 'pc';
-        let score = 0;
-        let currentLevel = 1;
-        let speedMultiplier = 1;
-        let isMoving = false;
-        let checkActive = false;
-        let lastMoveCheck = Date.now();
-        
-        let bullets = [];
-        let activeHunters = [];
+        let gameActive = false, device = 'pc', score = 0, level = 1, speedMult = 1;
+        let bullets = [], enemyBullets = [], mines = [], hunters = [];
+        let isMoving = false, checkActive = false, lastMove = Date.now();
         const bgColors = ["#050505", "#1e0b0b", "#0b1e0b", "#0b0b1e", "#1e1e0b"];
 
-        const player = { x: canvas.width/2, y: canvas.height/2, size: 20, vx: 0, vy: 0 };
+        const player = { x: canvas.width/2, y: canvas.height/2, size: 20, slowed: false };
 
-        const hunterTemplates = [
-            { name: "Tank Mert", color: "#c0392b", speed: 0.7, maxHp: 3, type: 'tank', size: 45 },
-            { name: "Görünmez Kutay", color: "#ffa502", speed: 2.5, maxHp: 1, type: 'invisible' },
-            { name: "Zorba Emre", color: "#8e44ad", speed: 2.3, maxHp: 2, type: 'normal' },
-            { name: "Donduran Birce", color: "#ff9ff3", speed: 1.9, maxHp: 2, type: 'frost' },
-            { name: "Cansu Hoca", color: "#ffffff", speed: 2.0, maxHp: 2, type: 'teacher' }
+        const templates = [
+            { name: "Tank Mert", quote: "Ateş serbest!", color: "#c0392b", speed: 0.7, hp: 3, type: 'tank', size: 50 },
+            { name: "Görünmez Kutay", quote: "Neredeyim, bul bakalım!", color: "#ffa502", speed: 2.5, hp: 1, type: 'ghost', size: 30 },
+            { name: "Işınlanan Ali", quote: "Beni asla vuramazsın!", color: "#5352ed", speed: 2.2, hp: 1, type: 'tele', size: 30 },
+            { name: "Zorba Emre", quote: "Seni zorbalıycam!", color: "#8e44ad", speed: 2.3, hp: 2, type: 'norm', size: 35 },
+            { name: "Donduran Birce", quote: "Kıpırdayamazsın!", color: "#ff9ff3", speed: 2.0, hp: 2, type: 'frost', size: 35 },
+            { name: "Cansu Hoca", quote: "Ciddiyet lütfen!", color: "#ffffff", speed: 2.0, hp: 2, type: 'teacher', size: 35 }
         ];
 
-        function initGame(type) {
+        function init(type) {
             device = type;
             document.getElementById("startScreen").style.display = "none";
-            if(device === 'mobile') document.getElementById("mobile-controls").style.display = "flex";
+            if(device === 'mobile') document.getElementById("mobile-ui").style.display = "flex";
             
-            activeHunters = hunterTemplates.map(t => ({
-                ...t, x: Math.random()*canvas.width, y: -50, hp: t.maxHp, dead: false, 
-                size: t.size || 30, lastInvis: Date.now()
+            hunters = templates.map(t => ({
+                ...t, x: Math.random()*canvas.width, y: -100, 
+                maxHp: t.hp, dead: false, 
+                lastAction: Date.now(), opacity: 1
             }));
 
             gameActive = true;
-            setInterval(teacherCheck, 30000); // 30 sn'de bir Cansu Hoca kontrolü
+            setInterval(teacherCheck, 30000);
             gameLoop();
         }
 
         function teacherCheck() {
             if(!gameActive) return;
-            checkActive = true;
-            warningEl.style.display = "block";
+            checkActive = true; warning.style.display = "block";
+            subtitle.innerText = "Cansu Hoca: Kim kımıldıyor orada?!";
             setTimeout(() => {
-                if(isMoving && checkActive) gameOverFunc();
-                checkActive = false;
-                warningEl.style.display = "none";
+                if(isMoving && checkActive) end();
+                checkActive = false; warning.style.display = "none";
             }, 2000);
         }
 
         // --- KONTROLLER ---
         window.addEventListener("mousemove", e => {
             if(gameActive && device === 'pc') {
-                isMoving = true;
+                isMoving = true; lastMove = Date.now();
                 player.x = e.clientX; player.y = e.clientY;
-                lastMoveCheck = Date.now();
+            }
+        });
+
+        window.addEventListener("mousedown", e => {
+            if(gameActive && device === 'pc' && e.button === 0 && mines.length < 5) {
+                mines.push({x: player.x, y: player.y});
+                document.getElementById("mineCount").innerText = 5 - mines.length;
             }
         });
 
         window.addEventListener("keydown", e => {
             if(gameActive && device === 'pc' && e.key.startsWith("Arrow")) {
                 let vx=0, vy=0;
-                if(e.key === "ArrowUp") vy=-15; if(e.key === "ArrowDown") vy=15;
-                if(e.key === "ArrowLeft") vx=-15; if(e.key === "ArrowRight") vx=15;
+                if(e.key==="ArrowUp") vy=-15; if(e.key==="ArrowDown") vy=15;
+                if(e.key==="ArrowLeft") vx=-15; if(e.key==="ArrowRight") vx=15;
                 bullets.push({x: player.x, y: player.y, vx, vy});
             }
         });
 
-        // Mobil Joystick Mantığı (Basitleştirilmiş)
-        const joyStick = document.getElementById("joyStick");
-        document.getElementById("joyBase").addEventListener("touchmove", e => {
-            const touch = e.touches[0];
-            const base = e.currentTarget.getBoundingClientRect();
-            const centerX = base.left + 60;
-            const centerY = base.top + 60;
-            const dx = touch.clientX - centerX;
-            const dy = touch.clientY - centerY;
-            player.vx = dx / 10;
-            player.vy = dy / 10;
-            joyStick.style.transform = `translate(${dx/2}px, ${dy/2}px)`;
-            isMoving = true; lastMoveCheck = Date.now();
+        // Mobil Özel Butonlar
+        document.getElementById("m-fire").addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            bullets.push({x: player.x, y: player.y, vx: 0, vy: -15});
         });
 
-        document.getElementById("fireBtn").addEventListener("touchstart", () => {
-            if(gameActive) bullets.push({x: player.x, y: player.y, vx: 0, vy: -15});
+        document.getElementById("m-mine").addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            if(mines.length < 5) {
+                mines.push({x: player.x, y: player.y});
+                document.getElementById("mineCount").innerText = 5 - mines.length;
+            }
+        });
+
+        canvas.addEventListener("touchmove", e => {
+            if(gameActive && device === 'mobile') {
+                const t = e.touches[0];
+                player.x = t.clientX; player.y = t.clientY;
+                isMoving = true; lastMove = Date.now();
+            }
         });
 
         function update() {
             const now = Date.now();
-            if(now - lastMoveCheck > 100) isMoving = false;
+            if(now - lastMove > 100) isMoving = false;
+            player.slowed = false;
 
-            if(device === 'mobile') {
-                player.x += player.vx;
-                player.y += player.vy;
-            }
-
-            activeHunters.forEach(h => {
+            hunters.forEach(h => {
                 if(h.dead) return;
-                
-                // Görünmezlik
-                if(h.type === 'invisible') h.opacity = ((now - h.lastInvis) % 4000 < 2000) ? 0 : 1;
 
+                // --- GÜÇLER ---
+                if(h.type === 'ghost') h.opacity = ((now - h.lastAction) % 4000 < 2000) ? 0 : 1;
+                if(h.type === 'tele' && now - h.lastAction > 3000) { h.x += (Math.random()-0.5)*400; h.y += (Math.random()-0.5)*400; h.lastAction = now; }
+                if(h.type === 'tank' && now - h.lastAction > 10000) {
+                    const a = Math.atan2(player.y - h.y, player.x - h.x);
+                    enemyBullets.push({x: h.x, y: h.y, vx: Math.cos(a)*5, vy: Math.sin(a)*5});
+                    h.lastAction = now;
+                }
+                if(h.type === 'frost' && Math.hypot(h.x - player.x, h.y - player.y) < 150) player.slowed = true;
+
+                // Hareket
+                const spd = player.slowed ? 0.5 : h.speed * speedMult;
                 const angle = Math.atan2(player.y - h.y, player.x - h.x);
-                h.x += Math.cos(angle) * (h.speed * speedMultiplier);
-                h.y += Math.sin(angle) * (h.speed * speedMultiplier);
+                h.x += Math.cos(angle) * spd;
+                h.y += Math.sin(angle) * spd;
 
+                // Vurulma
                 bullets.forEach((b, bi) => {
-                    if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) {
+                    if(Math.hypot(b.x - h.x, b.y - h.y) < h.size/2) {
                         h.hp--; bullets.splice(bi, 1);
-                        if(h.hp <= 0) {
-                            h.dead = true; score += 100;
-                            // LEVEL UP KONTROLÜ
-                            if(score % 500 === 0) {
-                                currentLevel++;
-                                speedMultiplier += 0.3;
-                                levelEl.innerText = currentLevel;
-                                document.body.style.background = bgColors[currentLevel % bgColors.length];
-                            }
-                            scoreEl.innerText = score;
-                            setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.y = -50; }, 3000);
-                        }
+                        if(h.hp <= 0) die(h);
                     }
                 });
 
-                if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) gameOverFunc();
+                // Mayın Teması
+                mines.forEach((m, mi) => {
+                    if(Math.hypot(m.x - h.x, m.y - h.y) < h.size) {
+                        h.hp = 0; mines.splice(mi, 1);
+                        document.getElementById("mineCount").innerText = 5 - mines.length;
+                        die(h);
+                    }
+                });
+
+                if(Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) end();
             });
 
-            bullets.forEach((b, i) => {
-                b.x += b.vx; b.y += b.vy;
-                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
+            enemyBullets.forEach((eb, i) => {
+                eb.x += eb.vx; eb.y += eb.vy;
+                if(Math.hypot(eb.x - player.x, eb.y - player.y) < player.size + 5) end();
             });
+
+            bullets.forEach((b, i) => { b.x += b.vx; b.y += b.vy; if(b.x<0 || b.x>canvas.width || b.y<0 || b.y>canvas.height) bullets.splice(i, 1); });
+        }
+
+        function die(h) {
+            h.dead = true; score += 100;
+            subtitle.innerHTML = `<span style="color:${h.color}">${h.name}:</span> "${h.quote}"`;
+            if(score % 500 === 0) {
+                level++; speedMult += 0.2;
+                document.getElementById("ui-level").innerText = level;
+                document.body.style.background = bgColors[level % bgColors.length];
+            }
+            document.getElementById("score").innerText = score;
+            setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.x = Math.random()*canvas.width; h.y = -50; }, 3000);
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            activeHunters.forEach(h => {
+            mines.forEach(m => { ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.arc(m.x, m.y, 10, 0, Math.PI*2); ctx.fill(); });
+
+            hunters.forEach(h => {
                 if(h.dead || h.opacity === 0) return;
+                
+                if(h.type === 'frost') {
+                    ctx.fillStyle = "rgba(173, 216, 230, 0.15)";
+                    ctx.beginPath(); ctx.arc(h.x, h.y, 150, 0, Math.PI*2); ctx.fill();
+                }
+
                 ctx.fillStyle = h.color;
                 if(h.type === 'tank') ctx.fillRect(h.x-h.size/2, h.y-h.size/2, h.size, h.size);
                 else { ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2, 0, Math.PI*2); ctx.fill(); }
 
-                // CAN BARI
-                ctx.fillStyle = "rgba(255,255,255,0.2)";
-                ctx.fillRect(h.x - 20, h.y - h.size - 10, 40, 5);
-                ctx.fillStyle = "#2ecc71";
-                ctx.fillRect(h.x - 20, h.y - h.size - 10, (h.hp / h.maxHp) * 40, 5);
+                // Can Barı
+                ctx.fillStyle = "#444"; ctx.fillRect(h.x-20, h.y-h.size-10, 40, 5);
+                ctx.fillStyle = "#2ecc71"; ctx.fillRect(h.x-20, h.y-h.size-10, (h.hp/h.maxHp)*40, 5);
+                ctx.fillStyle = "white"; ctx.font = "12px Arial"; ctx.fillText(h.name, h.x-20, h.y+h.size+5);
             });
 
-            ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
+            enemyBullets.forEach(eb => { ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(eb.x, eb.y, 6, 0, Math.PI*2); ctx.fill(); });
             bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-4, b.y-4, 8, 8); });
+
+            ctx.fillStyle = player.slowed ? "#555" : "#00d2ff";
+            ctx.shadowBlur = 15; ctx.shadowColor = "#00d2ff";
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
         }
 
-        function gameOverFunc() { gameActive = false; document.getElementById("gameOver").style.display = "flex"; document.getElementById("finalScore").innerText = `SKOR: ${score}`; }
+        function end() { gameActive = false; document.getElementById("gameOver").style.display = "flex"; document.getElementById("finalScore").innerText = `SKOR: ${score}`; }
         function gameLoop() { if(gameActive) { update(); draw(); requestAnimationFrame(gameLoop); } }
     </script>
 </body>
