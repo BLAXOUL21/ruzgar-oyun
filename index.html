@@ -3,285 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rüzgar'ın İntikamı: v1.20.0 (Arsenal Update)</title>
+    <title>Rüzgar'ın İntikamı: v1.23.7</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #010101; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
         canvas { display: block; cursor: crosshair; }
         #version-tag { position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: rgba(255, 255, 255, 0.4); pointer-events: none; z-index: 10; font-family: monospace; }
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; text-align: center; }
         .btn { padding: 15px 40px; font-size: 22px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 50px; margin: 10px; box-shadow: 0 0 15px #2ecc71; transition: 0.3s; }
-        #subtitle-panel { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 750px; background: rgba(0, 0, 0, 0.9); border-left: 5px solid #00d2ff; border-right: 5px solid #00d2ff; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: 900; min-height: 35px; z-index: 5; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
-        .ui-top { position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none; }
-        .stats { font-size: 18px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px; border: 2px solid #00d2ff; min-width: 220px; }
-        .bar-label { font-size: 10px; color: #aaa; margin-top: 5px; display: block; font-weight: bold; }
-        .bar-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin-top: 2px; border: 1px solid #444; }
-        #dash-bar { width: 100%; height: 100%; background: #9b59b6; }
-        .powerup-box { position: absolute; top: 10px; right: 10px; font-size: 18px; text-align: right; pointer-events: none; z-index: 5; }
+        #subtitle-panel { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 750px; background: rgba(0, 0, 0, 0.95); border-left: 5px solid #00d2ff; border-right: 5px solid #00d2ff; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: 900; z-index: 5; color: #fff; text-transform: uppercase; border-top: 1px solid #333; }
+        #glitch-fx { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: rgba(0, 255, 0, 0.05); display: none; z-index: 2; border: 2px solid #0f0; }
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.20.0 | CEPHANELİK YÜKLENDİ</div>
+    <div id="glitch-fx"></div>
+    <div id="version-tag">v1.23.7 | ÇAĞAN: SİBER KORSAN</div>
     <div id="startScreen" class="overlay">
-        <h1 style="color:#2ecc71; font-size: 50px; text-shadow: 0 0 20px #2ecc71;">RÜZGAR'IN İNTİKAMI</h1>
-        <p style="font-size: 18px; color: #ccc;">Güçlendiricileri topla, savaşı kazan!</p>
-        <button class="btn" onclick="init()">MEVZUYA GİR</button>
+        <h1 style="color:#00d2ff; font-size: 45px;">RÜZGAR'IN İNTİKAMI</h1>
+        <p>Çağan Sistemlerini Hackleyebilir!</p>
+        <button class="btn" onclick="init()">GİRİŞ YAP</button>
     </div>
     <div id="gameOver" class="overlay" style="display: none;">
-        <h1 style="color:#ff4757; font-size: 60px;">PAKET OLDUN!</h1>
-        <button class="btn" onclick="location.reload()">TEKRAR DENE</button>
+        <h1 style="color:#ff4757; font-size: 60px;">BAĞLANTI KESİLDİ!</h1>
+        <button class="btn" onclick="location.reload()">REBOOT</button>
     </div>
-    
-    <div id="subtitle-panel">SİSTEM HAZIR...</div>
-    
-    <div class="ui-top">
-        <div class="stats">
-            SKOR: <b id="score">0</b> | LEVEL: <b id="ui-level">1</b><br>
-            <span class="bar-label">DASH (SHIFT / SAĞ TIK)</span>
-            <div class="bar-bg"><div id="dash-bar"></div></div>
-            <span class="bar-label">MAYIN HAKKI (SOL TIK): <b id="mine-count" style="color:#ff4757">5</b></span>
-        </div>
-    </div>
-    <div class="powerup-box">
-        <span id="powerup-text" style="color:#2ecc71"></span>
-    </div>
+    <div id="subtitle-panel">SİSTEM YÜKLENİYOR...</div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const subtitle = document.getElementById("subtitle-panel");
-        const dashBar = document.getElementById("dash-bar");
-        const mineText = document.getElementById("mine-count");
-        const powerupText = document.getElementById("powerup-text");
+        const glitchFx = document.getElementById("glitch-fx");
         
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let gameActive = false, score = 0, level = 1, speedMult = 1;
-        let bullets = [], particles = [], hunters = [], enemyBullets = [], mines = [], powerups = [];
-        let mouseX = 0, mouseY = 0, ammoReload = 100, dashEnergy = 100, isDashing = false, shakeAmount = 0;
-        
-        const player = { x: canvas.width/2, y: canvas.height/2, size: 20, color: "#00d2ff", invul: 0, speedDebuff: 1, hasShield: false, hasDoubleMermi: false, powerupTimer: 0 };
+        let gameActive = false, ammoReload = 100, mouseX = 0, mouseY = 0;
+        let bullets = [], hunters = [], enemyBullets = [], reverseControls = false;
+
+        const player = { x: canvas.width/2, y: canvas.height/2, size: 20, color: "#00d2ff", name: "RÜZGAR" };
 
         const templates = [
-            { name: "Tank Mert Hoca", color: "#c0392b", speed: 0.5, hp: 3, size: 55 },
-            { name: "Kutay (Ghost)", color: "#ffa502", speed: 2.2, hp: 1, size: 30, ghostTimer: 0, isGhost: false },
-            { name: "Cansu Hoca", color: "#ff00ff", speed: 2.1, hp: 1, size: 32, auraRadius: 150 },
-            { name: "Zeki Emre", color: "#8e44ad", speed: 1.8, hp: 1, size: 35 },
-            { name: "Işınlanan Ali", color: "#5352ed", speed: 1.6, hp: 1, size: 28, tpTimer: 0 }
+            { name: "Mert Hoca", color: "#c0392b", speed: 0.6, maxHp: 3, size: 60, type: "gama", q: "Gama Işını!" },
+            { name: "Çağan", color: "#00ff00", speed: 2.4, maxHp: 1, size: 32, type: "hacker", q: "ERİŞİM SAĞLANDI!" },
+            { name: "Çağhan", color: "#9b59b6", speed: 1.2, maxHp: 2, size: 70, type: "susanoo", q: "SUSANOO!" },
+            { name: "Kutay", color: "#ffa502", speed: 2.2, maxHp: 1, size: 30, type: "invis", q: "Sessizce..." },
+            { name: "Ali", color: "#5352ed", speed: 1.6, maxHp: 1, size: 28, type: "tp", q: "Işınlandım!" },
+            { name: "Cansu Hoca", color: "#ff00ff", speed: 2.0, maxHp: 1, size: 32, aura: 150, type: "slow", q: "Disiplin!" }
         ];
 
-        function setSubtitle(text, color = "#fff", border = "#00d2ff") {
-            subtitle.innerText = text;
-            subtitle.style.color = color;
-            subtitle.style.borderColor = border;
-        }
+        function setSubtitle(t, c="#fff") { subtitle.innerText = t; subtitle.style.color = c; }
 
         function init() {
             document.getElementById("startScreen").style.display = "none";
-            hunters = templates.map(t => ({ ...t, x: Math.random()*canvas.width, y: -100, maxHp: t.hp, hp: t.hp, dead: false, specialTimer: Date.now(), ghostTimer: Date.now(), tpTimer: Date.now() }));
+            hunters = templates.map(t => ({ 
+                ...t, x: Math.random()*canvas.width, y: -50, hp: t.maxHp, 
+                dead: false, specT: Date.now(), quoteTimer: 0, shieldActive: false
+            }));
             gameActive = true;
             gameLoop();
-            setInterval(spawnPowerup, 10000); // 10 saniyede bir güçlendirici çıkar
         }
 
-        function spawnPowerup() {
-            if(!gameActive) return;
-            const type = Math.random() > 0.5 ? 'shield' : 'double';
-            const x = Math.random() * (canvas.width - 50) + 25;
-            const y = Math.random() * (canvas.height - 50) + 25;
-            powerups.push({ x, y, type, visible: true });
-        }
-
-        function performDash() {
-            if (dashEnergy < 40 || isDashing) return;
-            isDashing = true; dashEnergy -= 40; player.invul = 15;
-            const angle = Math.atan2(player.y - mouseY, player.x - mouseX);
-            player.x += Math.cos(angle) * 160; player.y += Math.sin(angle) * 160;
-            shakeAmount = 10;
-            setTimeout(() => { isDashing = false; }, 300);
-        }
-
-        window.addEventListener("mousemove", e => { 
-            if(!gameActive || isDashing) return;
-            mouseX = e.clientX; mouseY = e.clientY;
-            player.x += (mouseX - player.x) * 0.15 * player.speedDebuff;
-            player.y += (mouseY - player.y) * 0.15 * player.speedDebuff;
-        });
-
-        window.addEventListener("mousedown", e => { 
-            if(e.button === 0 && mines.length < 5) {
-                mines.push({x: player.x, y: player.y});
-                setSubtitle("RÜZGAR: BİR MAYIN DAHA!", "#f1c40f", "#f1c40f");
-            }
-            if(e.button === 2) performDash();
-        });
-
+        window.addEventListener("mousemove", e => { mouseX = e.clientX; mouseY = e.clientY; });
+        
         window.addEventListener("keydown", e => {
-            if(e.key === "Shift") performDash();
-            if(e.key.startsWith("Arrow") && ammoReload >= 100) {
-                if(player.hasDoubleMermi) {
-                    // Çifte Mermi
-                    bullets.push({x: player.x - 10, y: player.y, vx: e.key==="ArrowLeft"?-15:e.key==="ArrowRight"?15:0, vy: e.key==="ArrowUp"?-15:e.key==="ArrowDown"?15:0});
-                    bullets.push({x: player.x + 10, y: player.y, vx: e.key==="ArrowLeft"?-15:e.key==="ArrowRight"?15:0, vy: e.key==="ArrowUp"?-15:e.key==="ArrowDown"?15:0});
-                } else {
-                    bullets.push({x: player.x, y: player.y, vx: e.key==="ArrowLeft"?-15:e.key==="ArrowRight"?15:0, vy: e.key==="ArrowUp"?-15:e.key==="ArrowDown"?15:0});
-                }
-                ammoReload = 0;
-            }
+            if(!gameActive || ammoReload < 100) return;
+            let vx = 0, vy = 0;
+            const mult = reverseControls ? -1 : 1; // Çağan'ın hack gücü burada devreye giriyor
+
+            if(e.key === "ArrowUp") vy = -15 * mult; 
+            else if(e.key === "ArrowDown") vy = 15 * mult;
+            else if(e.key === "ArrowLeft") vx = -15 * mult; 
+            else if(e.key === "ArrowRight") vx = 15 * mult;
+
+            if(vx !== 0 || vy !== 0) { bullets.push({ x: player.x, y: player.y, vx, vy }); ammoReload = 0; }
         });
 
-        window.oncontextmenu = (e) => e.preventDefault();
+        function triggerQuote(h, text) { h.activeQuote = text; h.quoteTimer = 80; setSubtitle(`${h.name.toUpperCase()}: ${text}`, h.color); }
 
-        function createParticles(x, y, color, count) {
-            for(let i=0; i<count; i++) {
-                particles.push({ x, y, vx: (Math.random()-0.5)*12, vy: (Math.random()-0.5)*12, life: 1.0, color });
-            }
-        }
-
-        function update() {
-            const currentTime = Date.now();
-            if(dashEnergy < 100) dashEnergy += 0.4;
-            if(ammoReload < 100) ammoReload += 1.6;
-            dashBar.style.width = dashEnergy + "%";
-            mineText.innerText = (5 - mines.length);
-            if(player.invul > 0) player.invul--;
-            if(shakeAmount > 0) shakeAmount *= 0.9;
-
-            // Güçlendirici Süresini Kontrol Et
-            if(player.powerupTimer > 0 && currentTime > player.powerupTimer) {
-                player.hasShield = false;
-                player.hasDoubleMermi = false;
-                player.powerupTimer = 0;
-                powerupText.innerText = "";
-            }
-
-            player.speedDebuff = 1;
+        function gameLoop() {
+            if(!gameActive) return;
+            const now = Date.now();
+            
+            player.x += (mouseX - player.x) * 0.12;
+            player.y += (mouseY - player.y) * 0.12;
+            if(ammoReload < 100) ammoReload += 6;
 
             hunters.forEach(h => {
                 if(h.dead) return;
+                if(h.quoteTimer > 0) h.quoteTimer--;
 
-                if (h.name === "Işınlanan Ali" && currentTime - h.tpTimer > 6000) {
-                    h.x = player.x + (Math.random()-0.5)*300; h.y = player.y + (Math.random()-0.5)*300;
-                    h.tpTimer = currentTime;
+                // --- ÇAĞAN: HACK GÜCÜ ---
+                if(h.type === "hacker" && now - h.specT > 12000) {
+                    triggerQuote(h, "SİSTEM HACKLENDİ!");
+                    glitchFx.style.display = "block"; reverseControls = true;
+                    h.specT = now;
+                    setTimeout(() => { glitchFx.style.display = "none"; reverseControls = false; }, 3000);
                 }
 
-                if (h.name === "Kutay (Ghost)") {
-                    let elapsed = currentTime - h.ghostTimer;
-                    if (!h.isGhost && elapsed > 10000) { h.isGhost = true; h.ghostTimer = currentTime; }
-                    else if (h.isGhost && elapsed > 5000) { h.isGhost = false; h.ghostTimer = currentTime; }
+                // --- DİĞER GÜÇLER ---
+                if(h.type === "susanoo" && now - h.specT > 8000) {
+                    h.shieldActive = true; triggerQuote(h, "KALKAN AKTİF!");
+                    h.specT = now; setTimeout(() => { h.shieldActive = false; }, 3500);
+                }
+                if(h.type === "gama" && now - h.specT > 10000) {
+                    const a = Math.atan2(player.y-h.y, player.x-h.x);
+                    enemyBullets.push({x:h.x, y:h.y, vx:Math.cos(a)*9, vy:Math.sin(a)*9});
+                    h.specT = now; triggerQuote(h, h.q);
                 }
 
-                if (h.name === "Cansu Hoca") {
-                    if (Math.hypot(player.x - h.x, player.y - h.y) < h.auraRadius) player.speedDebuff = 0.6;
+                const a = Math.atan2(player.y-h.y, player.x-h.x);
+                h.x += Math.cos(a) * h.speed; h.y += Math.sin(a) * h.speed;
+
+                if(Math.hypot(h.x-player.x, h.y-player.y) < player.size + h.size/2) {
+                    gameActive = false; document.getElementById("gameOver").style.display = "flex";
                 }
+            });
 
-                if (h.name === "Tank Mert Hoca" && currentTime - h.specialTimer > 10000) {
-                    const angle = Math.atan2(player.y - h.y, player.x - h.x);
-                    enemyBullets.push({ x: h.x, y: h.y, vx: Math.cos(angle)*8, vy: Math.sin(angle)*8, color: "#c0392b" });
-                    h.specialTimer = currentTime;
-                }
-
-                let angle = (h.name === "Zeki Emre") ? Math.atan2(player.y+(mouseY-player.y)*0.4 - h.y, player.x+(mouseX-player.x)*0.4 - h.x) : Math.atan2(player.y - h.y, player.x - h.x);
-                h.x += Math.cos(angle) * h.speed * speedMult;
-                h.y += Math.sin(angle) * h.speed * speedMult;
-
-                mines.forEach((m, mi) => {
-                    if(Math.hypot(h.x - m.x, h.y - m.y) < h.size) {
-                        createParticles(m.x, m.y, "#ff4757", 35);
-                        shakeAmount = 25;
-                        mines.splice(mi, 1);
-                        die(h);
-                        setSubtitle("PATLADI GİTTİ!", "#ff4757", "#ff4757");
+            bullets.forEach((b, bi) => {
+                b.x += b.vx; b.y += b.vy;
+                hunters.forEach(h => {
+                    if(!h.dead && Math.hypot(b.x-h.x, b.y-h.y) < h.size/2) {
+                        if(h.shieldActive) return;
+                        bullets.splice(bi, 1); h.hp--;
+                        if(h.hp <= 0) {
+                            h.dead = true; setSubtitle(`${h.name}: DEVRE DIŞI!`, h.color);
+                            setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.y = -50; }, 4000);
+                        }
                     }
                 });
-
-                bullets.forEach((b, bi) => { 
-                    if(Math.hypot(b.x - h.x, b.y - h.y) < h.size) { h.hp--; bullets.splice(bi, 1); if(h.hp <= 0) die(h); } 
-                });
-                
-                // Oyuncu ile çarpışma (Kalkan kontrolü)
-                if(player.invul <= 0 && !player.hasShield && Math.hypot(h.x - player.x, h.y - player.y) < player.size + h.size/2) end();
             });
 
-            // Güçlendirici Topla
-            powerups.forEach((p, pi) => {
-                if(p.visible && Math.hypot(player.x - p.x, player.y - p.y) < player.size + 20) {
-                    p.visible = false;
-                    player.powerupTimer = Date.now() + 10000; // 10 saniye
-                    if(p.type === 'shield') { player.hasShield = true; powerupText.innerText = "KALKAN AKTİF (10s)"; powerupText.style.color = "#00d2ff"; }
-                    if(p.type === 'double') { player.hasDoubleMermi = true; powerupText.innerText = "ÇİFTE MERMİ AKTİF (10s)"; powerupText.style.color = "#ff4757"; }
-                    setSubtitle("GÜÇLENDİRİCİ ALINDI!", "#2ecc71", "#2ecc71");
-                    powerups.splice(pi, 1);
-                }
-            });
-
-            bullets.forEach((b, i) => { b.x += b.vx; b.y += b.vy; if(b.x<0 || b.x>canvas.width || b.y<0 || b.y>canvas.height) bullets.splice(i, 1); });
-            enemyBullets.forEach((eb, i) => { 
-                eb.x += eb.vx; eb.y += eb.vy; 
-                if (player.invul <= 0 && !player.hasShield && Math.hypot(eb.x - player.x, eb.y - player.y) < player.size + 10) end();
-                if(eb.x<0 || eb.x>canvas.width || eb.y<0 || eb.y>canvas.height) enemyBullets.splice(i, 1); 
-            });
-            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.02; if(p.life <= 0) particles.splice(i, 1); });
-        }
-
-        function die(h) {
-            h.dead = true; createParticles(h.x, h.y, h.color, 20); score += 100;
-            document.getElementById("score").innerText = score;
-            setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.x = Math.random()*canvas.width; h.y = -50; h.specialTimer = Date.now(); h.ghostTimer = Date.now(); h.tpTimer = Date.now(); }, 3000);
+            draw();
+            requestAnimationFrame(gameLoop);
         }
 
         function draw() {
-            ctx.save();
-            if(shakeAmount > 1) ctx.translate((Math.random()-0.5)*shakeAmount, (Math.random()-0.5)*shakeAmount);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Mayınları Çiz (v1.19.1'deki LED'li çizim)
-            mines.forEach(m => {
-                ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(m.x, m.y, 10, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = "#555"; ctx.lineWidth = 2; ctx.stroke();
-                let ledFlash = (Math.floor(Date.now() / 500) % 2 === 0);
-                if(ledFlash) { ctx.fillStyle = "#ff0000"; ctx.shadowBlur = 15; ctx.shadowColor = "#ff0000"; ctx.beginPath(); ctx.arc(m.x, m.y, 4, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0; }
-                else { ctx.fillStyle = "#440000"; ctx.beginPath(); ctx.arc(m.x, m.y, 4, 0, Math.PI*2); ctx.fill(); }
-            });
-
-            // Güçlendiricileri Çiz
-            powerups.forEach(p => {
-                ctx.fillStyle = (p.type === 'shield') ? "#00d2ff" : "#ff4757";
-                ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = "white"; ctx.font = "bold 10px Arial"; ctx.fillText((p.type === 'shield' ? "S" : "D"), p.x, p.y + 4);
-            });
-
-            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); });
-            ctx.globalAlpha = 1;
-
             hunters.forEach(h => {
-                if(h.dead) return;
-                if (h.name === "Cansu Hoca") {
-                    ctx.beginPath(); ctx.arc(h.x, h.y, h.auraRadius, 0, Math.PI*2); ctx.strokeStyle = "rgba(255, 0, 255, 0.2)"; ctx.stroke();
+                if(!h.dead) {
+                    if(h.shieldActive) { ctx.strokeStyle = h.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2 + 10, 0, 7); ctx.stroke(); }
+                    ctx.fillStyle = h.color; ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2, 0, 7); ctx.fill();
+                    ctx.fillStyle = "white"; ctx.font = "bold 12px Arial"; ctx.textAlign = "center";
+                    ctx.fillText(h.name, h.x, h.y - h.size/2 - 10);
+                    if(h.quoteTimer > 0) ctx.fillText(h.activeQuote, h.x, h.y - h.size/2 - 30);
                 }
-                ctx.globalAlpha = h.isGhost ? 0.0 : 1.0;
-                ctx.fillStyle = h.color; ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = "white"; ctx.font = "bold 12px Arial"; ctx.textAlign = "center";
-                ctx.fillText(h.name, h.x, h.y - h.size/2 - 5);
-                ctx.globalAlpha = 1.0;
             });
-
-            bullets.forEach(b => { ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x-4, b.y-4, 8, 8); });
-            enemyBullets.forEach(eb => { ctx.fillStyle = eb.color; ctx.beginPath(); ctx.arc(eb.x, eb.y, 10, 0, Math.PI*2); ctx.fill(); });
-            
-            // Oyuncu (Kalkan Efekti)
-            if(player.hasShield) {
-                ctx.beginPath(); ctx.arc(player.x, player.y, player.size + 10, 0, Math.PI*2); ctx.strokeStyle = "#00d2ff"; ctx.lineWidth = 4; ctx.stroke();
-            }
-            ctx.fillStyle = player.invul > 0 ? "white" : player.color;
-            ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
+            bullets.forEach(b => { ctx.fillStyle="#f1c40f"; ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, 7); ctx.fill(); });
+            enemyBullets.forEach(eb => { ctx.fillStyle="#ff0000"; ctx.beginPath(); ctx.arc(eb.x, eb.y, 8, 0, 7); ctx.fill(); });
+            ctx.fillStyle = player.color; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, 7); ctx.fill();
+            ctx.fillStyle = "white"; ctx.fillText(player.name, player.x, player.y - 30);
         }
-
-        function end() { gameActive = false; document.getElementById("gameOver").style.display = "flex"; }
-        function gameLoop() { if(gameActive) { update(); draw(); requestAnimationFrame(gameLoop); } }
     </script>
 </body>
 </html>
