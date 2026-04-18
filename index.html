@@ -3,32 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rüzgar'ın İntikamı: v1.24.1 (Full Realistic Fix)</title>
+    <title>Rüzgar'ın İntikamı: v1.24.3 (Reflect Edition)</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #0a0a0a; font-family: 'Courier New', monospace; color: white; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
         canvas { display: block; }
-        .hud { position: absolute; padding: 15px; background: rgba(0,0,0,0.8); border: 1px solid #00d2ff; border-radius: 5px; font-weight: bold; pointer-events: none; z-index: 10; }
-        .score-box { top: 10px; left: 10px; box-shadow: 0 0 10px rgba(0,210,255,0.3); }
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #1a1a1a 0%, #000 100%); z-index: 100; text-align: center; }
-        .btn { padding: 20px 60px; font-size: 28px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 5px; transition: 0.3s; box-shadow: 0 5px 0 #27ae60; }
-        .btn:hover { background: #27ae60; transform: translateY(-2px); }
-        .btn:active { transform: translateY(2px); box-shadow: none; }
-        #glitch-fx { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 20; pointer-events: none; border: 5px solid #0f0; opacity: 0.2; }
+        .hud { position: absolute; padding: 15px; background: rgba(0,0,0,0.85); border: 2px solid #333; border-radius: 10px; font-weight: 900; z-index: 10; pointer-events: none; }
+        .score-box { top: 10px; left: 10px; border-left: 5px solid #00d2ff; }
+        #glitch-fx { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 20; pointer-events: none; background: rgba(0,255,0,0.1); border: 10px solid #0f0; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; text-align: center; }
+        .btn { padding: 20px 60px; font-size: 28px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 5px; box-shadow: 0 6px 0 #27ae60; transition: 0.2s; }
+        .btn:active { transform: translateY(3px); box-shadow: none; }
+        #subtitle-panel { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 80%; text-align: center; font-size: 22px; font-weight: bold; color: #fff; text-shadow: 0 0 10px #000; z-index: 15; }
     </style>
 </head>
 <body>
     <div id="glitch-fx"></div>
     <div class="hud score-box">SKOR: <span id="score">0</span></div>
+    <div id="subtitle-panel">ÇAĞHAN'IN KALKANI ARTIK MERMİ SEKTİRİYOR!</div>
     
     <div id="startScreen" class="overlay">
-        <h1 style="color:#00d2ff; font-size: 50px; text-shadow: 0 0 20px #00d2ff;">RÜZGAR: İNTİKAM</h1>
-        <p style="color: #888;">Gerçekçi Mekanikler ve HD Grafikler Aktif</p>
-        <button class="btn" onclick="init()">BAĞLANTIYI KUR</button>
+        <h1 style="color:#a55eea; font-size: 55px; margin-bottom:10px;">DİKKAT: YANSITICI</h1>
+        <p style="margin-bottom:30px; color:#aaa;">Çağhan Kalkanlıyken Ateş Etme, Mermiler Sana Döner!</p>
+        <button class="btn" onclick="init()">ANLAŞILDI, BAŞLA</button>
     </div>
 
     <div id="gameOver" class="overlay" style="display: none;">
-        <h1 style="color:#ff4757; font-size: 60px;">SİSTEM ÇÖKTÜ</h1>
-        <button class="btn" style="background:#ff4757; box-shadow: 0 5px 0 #c0392b;" onclick="location.reload()">REBOOT</button>
+        <h1 style="color:#ff4757; font-size: 60px;">KENDİ MERMİNLE VURULDUN!</h1>
+        <button class="btn" onclick="location.reload()">TEKRAR DENE</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -36,29 +37,30 @@
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        const sub = document.getElementById("subtitle-panel");
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let gameActive = false, score = 0, ammoReload = 100;
+        let gameActive = false, score = 0, ammoReload = 100, revControls = false;
         let mouseX = canvas.width/2, mouseY = canvas.height/2;
-        let bullets = [], particles = [], hunters = [], revControls = false;
+        let bullets = [], hunters = [], enemyBullets = [], playerDebuff = 1;
 
-        const player = { x: canvas.width/2, y: canvas.height/2, size: 25, color: "#00d2ff" };
+        const player = { x: canvas.width/2, y: canvas.height/2, size: 22, color: "#00d2ff" };
 
-        const enemies = [
-            { name: "Mert Hoca", color: "#c0392b", speed: 0.8, hp: 3, size: 70, type: "tank" },
+        const templates = [
+            { name: "Mert Hoca", color: "#ff4757", speed: 0.8, hp: 3, size: 70, type: "gama" },
             { name: "Çağan", color: "#2ecc71", speed: 2.6, hp: 1, size: 35, type: "hacker" },
-            { name: "Çağhan", color: "#8e44ad", speed: 1.4, hp: 2, size: 85, type: "armor" },
-            { name: "Ali", color: "#2980b9", speed: 1.8, hp: 1, size: 32, type: "tp" },
-            { name: "Cansu Hoca", color: "#e84393", speed: 2.2, hp: 1, size: 40, type: "slow" },
-            { name: "Kutay", color: "#d35400", speed: 2.4, hp: 1, size: 38, type: "ghost" }
+            { name: "Çağhan", color: "#a55eea", speed: 1.4, hp: 2, size: 85, type: "armor" },
+            { name: "Ali", color: "#45aaf2", speed: 1.8, hp: 1, size: 32, type: "tp" },
+            { name: "Cansu Hoca", color: "#fd79a8", speed: 2.1, hp: 1, size: 40, type: "slow" },
+            { name: "Kutay", color: "#fa8231", speed: 2.4, hp: 1, size: 38, type: "ghost" }
         ];
 
         function init() {
             document.getElementById("startScreen").style.display = "none";
-            hunters = enemies.map(e => ({
-                ...e, x: Math.random()*canvas.width, y: -100,
-                maxHp: e.hp, dead: false, specT: Date.now(), shield: false
+            hunters = templates.map(t => ({
+                ...t, x: Math.random()*canvas.width, y: -100, maxHp: t.hp,
+                dead: false, specT: Date.now(), shield: false, invis: false
             }));
             gameActive = true;
             loop();
@@ -70,68 +72,55 @@
             let vx = 0, vy = 0, m = revControls ? -1 : 1;
             if(e.key === "ArrowUp") vy = -18 * m; else if(e.key === "ArrowDown") vy = 18 * m;
             else if(e.key === "ArrowLeft") vx = -18 * m; else if(e.key === "ArrowRight") vx = 18 * m;
-            if(vx !== 0 || vy !== 0) { bullets.push({x: player.x, y: player.y, vx, vy}); ammoReload = 0; }
+            if(vx !== 0 || vy !== 0) { bullets.push({x: player.x, y: player.y, vx, vy, reflected: false}); ammoReload = 0; }
         });
 
-        function drawMetalBall(x, y, size, color, name) {
-            // Gölge
-            ctx.fillStyle = "rgba(0,0,0,0.3)";
-            ctx.beginPath(); ctx.arc(x+5, y+5, size/2, 0, 7); ctx.fill();
-
-            // Gövde
-            const grad = ctx.createRadialGradient(x-size/4, y-size/4, size/10, x, y, size);
-            grad.addColorStop(0, "#fff");
-            grad.addColorStop(0.2, color);
-            grad.addColorStop(1, "#000");
-            
-            ctx.fillStyle = grad;
-            ctx.beginPath(); ctx.arc(x, y, size/2, 0, 7); ctx.fill();
-            
-            // İsim etiketi
-            ctx.fillStyle = "white";
-            ctx.font = "bold 14px Arial";
-            ctx.textAlign = "center";
+        function drawEntity(x, y, size, color, name) {
+            const grad = ctx.createRadialGradient(x - size/4, y - size/4, size/10, x, y, size);
+            grad.addColorStop(0, "#fff"); grad.addColorStop(0.3, color); grad.addColorStop(1, "#000");
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(x, y, size/2, 0, 7); ctx.fill();
+            ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
             ctx.fillText(name, x, y - size/2 - 10);
         }
 
         function loop() {
             if(!gameActive) return;
-            ctx.fillStyle = "#111"; // Zemin rengi
-            ctx.fillRect(0,0,canvas.width, canvas.height);
+            const now = Date.now();
+            ctx.fillStyle = "#0a0a0a"; ctx.fillRect(0,0,canvas.width, canvas.height);
 
-            // Hareket
-            player.x += (mouseX - player.x) * 0.15;
-            player.y += (mouseY - player.y) * 0.15;
-            if(ammoReload < 100) ammoReload += 10;
+            player.x += (mouseX - player.x) * (0.15 * playerDebuff);
+            player.y += (mouseY - player.y) * (0.15 * playerDebuff);
+            playerDebuff = 1; if(ammoReload < 100) ammoReload += 10;
 
-            // Oyuncu Çizimi
-            drawMetalBall(player.x, player.y, player.size*2, player.color, "RÜZGAR");
+            drawEntity(player.x, player.y, player.size*2, player.color, "RÜZGAR");
 
-            // Düşmanlar
             hunters.forEach(h => {
                 if(h.dead) return;
-                const angle = Math.atan2(player.y-h.y, player.x-h.x);
-                h.x += Math.cos(angle) * h.speed; h.y += Math.sin(angle) * h.speed;
-
-                // Yetenekler
-                const now = Date.now();
+                
+                // YETENEKLER
                 if(h.type === "hacker" && now - h.specT > 10000) {
                     revControls = true; document.getElementById("glitch-fx").style.display = "block";
                     h.specT = now; setTimeout(() => { revControls = false; document.getElementById("glitch-fx").style.display = "none"; }, 3000);
                 }
-                if(h.type === "armor" && now - h.specT > 8000) {
+                if(h.type === "armor" && now - h.specT > 7000) {
                     h.shield = true; h.specT = now; setTimeout(() => h.shield = false, 4000);
                 }
+                if(h.type === "tp" && now - h.specT > 5000) { h.x = player.x + (Math.random()-0.5)*400; h.y = player.y + (Math.random()-0.5)*400; h.specT = now; }
+                if(h.type === "ghost") h.invis = (Math.sin(now/400) > 0.4);
 
-                // Kalkan Çizimi
+                const angle = Math.atan2(player.y-h.y, player.x-h.x);
+                h.x += Math.cos(angle) * h.speed; h.y += Math.sin(angle) * h.speed;
+
                 if(h.shield) {
-                    ctx.strokeStyle = "#a55eea"; ctx.lineWidth = 4;
-                    ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2 + 15, 0, 7); ctx.stroke();
+                    ctx.strokeStyle = "#a55eea"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2+15, 0, 7); ctx.stroke();
+                    ctx.fillStyle = "rgba(165, 94, 234, 0.1)"; ctx.fill();
                 }
 
-                drawMetalBall(h.x, h.y, h.size, h.color, h.name);
+                ctx.save(); if(h.invis) ctx.globalAlpha = 0.1;
+                drawEntity(h.x, h.y, h.size, h.color, h.name);
+                ctx.restore();
 
-                if(Math.hypot(h.x-player.x, h.y-player.y) < player.size + h.size/2) {
+                if(!h.invis && Math.hypot(h.x-player.x, h.y-player.y) < player.size + h.size/2) {
                     gameActive = false; document.getElementById("gameOver").style.display = "flex";
                 }
             });
@@ -139,15 +128,24 @@
             // Mermiler
             bullets.forEach((b, bi) => {
                 b.x += b.vx; b.y += b.vy;
-                ctx.fillStyle = "#f1c40f";
+                ctx.fillStyle = b.reflected ? "#ff0000" : "#f1c40f";
                 ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, 7); ctx.fill();
-                
+
+                // Çarpışma: Mermi vs Oyuncu (Sadece yansıyanlar)
+                if(b.reflected && Math.hypot(b.x-player.x, b.y-player.y) < player.size + 5) {
+                    gameActive = false; document.getElementById("gameOver").style.display = "flex";
+                }
+
                 hunters.forEach(h => {
-                    if(!h.dead && !h.shield && Math.hypot(b.x-h.x, b.y-h.y) < h.size/2) {
-                        bullets.splice(bi, 1); h.hp--;
-                        if(h.hp <= 0) {
-                            h.dead = true; score += 100;
-                            setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.y = -100; }, 3000);
+                    if(!h.dead && Math.hypot(b.x-h.x, b.y-h.y) < (h.shield ? h.size/2 + 15 : h.size/2)) {
+                        if(h.shield && !b.reflected) {
+                            // SEKTİRME MANTIĞI:
+                            b.vx = -b.vx * 1.2; b.vy = -b.vy * 1.2; // Geri döner ve hızlanır
+                            b.reflected = true;
+                            sub.innerText = "ÇAĞHAN: MERMİNİ SANA İADE EDİYORUM!";
+                        } else if(!h.shield) {
+                            bullets.splice(bi, 1); h.hp--;
+                            if(h.hp <= 0) { h.dead = true; score += 200; setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.y = -100; }, 4000); }
                         }
                     }
                 });
@@ -159,6 +157,5 @@
     </script>
 </body>
 </html>
-            
      
 
