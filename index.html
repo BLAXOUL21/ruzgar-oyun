@@ -3,32 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rüzgar'ın İntikamı: v1.24.3 (Reflect Edition)</title>
+    <title>Rüzgar'ın İntikamı: Cephane Yönetimi</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
-        canvas { display: block; }
-        .hud { position: absolute; padding: 15px; background: rgba(0,0,0,0.85); border: 2px solid #333; border-radius: 10px; font-weight: 900; z-index: 10; pointer-events: none; }
-        .score-box { top: 10px; left: 10px; border-left: 5px solid #00d2ff; }
-        #glitch-fx { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 20; pointer-events: none; background: rgba(0,255,0,0.1); border: 10px solid #0f0; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial', sans-serif; color: white; touch-action: none; }
+        canvas { display: block; cursor: crosshair; }
+        #subtitle-area {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            width: 80%; text-align: center; z-index: 50; pointer-events: none;
+        }
+        #subtitle-text {
+            font-size: 22px; font-weight: bold; color: #fff;
+            text-shadow: 2px 2px 4px #000; background: rgba(0, 0, 0, 0.6);
+            padding: 10px 25px; border-radius: 30px; display: inline-block;
+            transition: opacity 0.4s; opacity: 0;
+        }
+        .hud { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 12px; border: 2px solid #fff; z-index: 10; font-weight: bold; border-radius: 5px; line-height: 1.5; }
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; text-align: center; }
-        .btn { padding: 20px 60px; font-size: 28px; cursor: pointer; background: #2ecc71; border: none; color: white; font-weight: bold; border-radius: 5px; box-shadow: 0 6px 0 #27ae60; transition: 0.2s; }
-        .btn:active { transform: translateY(3px); box-shadow: none; }
-        #subtitle-panel { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 80%; text-align: center; font-size: 22px; font-weight: bold; color: #fff; text-shadow: 0 0 10px #000; z-index: 15; }
+        .btn { padding: 15px 45px; font-size: 22px; cursor: pointer; background: #3498db; border: none; color: white; font-weight: bold; border-radius: 5px; margin-top: 20px; box-shadow: 0 4px 0 #2980b9; }
+        #death-msg-big { font-size: 60px; font-weight: 900; text-transform: uppercase; margin-bottom: 5px; }
+        #death-quote { font-size: 26px; font-style: italic; opacity: 0.9; margin-bottom: 35px; }
+        .ammo-low { color: #ff4757; }
     </style>
 </head>
 <body>
-    <div id="glitch-fx"></div>
-    <div class="hud score-box">SKOR: <span id="score">0</span></div>
-    <div id="subtitle-panel">ÇAĞHAN'IN KALKANI ARTIK MERMİ SEKTİRİYOR!</div>
-    
+    <div class="hud">
+        SKOR: <span id="score">0</span><br>
+        ATIŞ CEPHANESİ: <span id="bullet-count">3</span>/3<br>
+        MAYIN CEPHANESİ: <span id="mine-count">5</span>/5
+    </div>
+    <div id="subtitle-area"><div id="subtitle-text"></div></div>
+
     <div id="startScreen" class="overlay">
-        <h1 style="color:#a55eea; font-size: 55px; margin-bottom:10px;">DİKKAT: YANSITICI</h1>
-        <p style="margin-bottom:30px; color:#aaa;">Çağhan Kalkanlıyken Ateş Etme, Mermiler Sana Döner!</p>
-        <button class="btn" onclick="init()">ANLAŞILDI, BAŞLA</button>
+        <h1 style="color:#3498db; font-size: 50px;">RÜZGAR: İNTİKAM</h1>
+        <p>
+            <b>Atış Kapasitesi:</b> 3 Mermi (Ekranda aynı anda)<br>
+            <b>Mayın Kapasitesi:</b> 5 Adet<br>
+            <b>Kontroller:</b> Ok Tuşları (Ateş), Sol Tık (Mayın)
+        </p>
+        <button class="btn" onclick="init()">BAŞLAT</button>
     </div>
 
     <div id="gameOver" class="overlay" style="display: none;">
-        <h1 style="color:#ff4757; font-size: 60px;">KENDİ MERMİNLE VURULDUN!</h1>
+        <div id="death-msg-big">BAĞLANTI KESİLDİ</div>
+        <div id="death-quote">"..."</div>
         <button class="btn" onclick="location.reload()">TEKRAR DENE</button>
     </div>
 
@@ -37,123 +54,176 @@
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        const sub = document.getElementById("subtitle-panel");
+        const subText = document.getElementById("subtitle-text");
+        const gameOverScreen = document.getElementById("gameOver");
+        const deathMsgBig = document.getElementById("death-msg-big");
+        const deathQuote = document.getElementById("death-quote");
+        
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let gameActive = false, score = 0, ammoReload = 100, revControls = false;
+        let gameActive = false, score = 0, ammoReload = 100, revControls = false, gunJam = false;
         let mouseX = canvas.width/2, mouseY = canvas.height/2;
-        let bullets = [], hunters = [], enemyBullets = [], playerDebuff = 1;
+        let bullets = [], hunters = [], mines = [], playerDebuff = 1;
 
-        const player = { x: canvas.width/2, y: canvas.height/2, size: 22, color: "#00d2ff" };
+        const player = { x: canvas.width/2, y: canvas.height/2, size: 20, color: "#00d2ff" };
 
-        const templates = [
-            { name: "Mert Hoca", color: "#ff4757", speed: 0.8, hp: 3, size: 70, type: "gama" },
-            { name: "Çağan", color: "#2ecc71", speed: 2.6, hp: 1, size: 35, type: "hacker" },
-            { name: "Çağhan", color: "#a55eea", speed: 1.4, hp: 2, size: 85, type: "armor" },
-            { name: "Ali", color: "#45aaf2", speed: 1.8, hp: 1, size: 32, type: "tp" },
-            { name: "Cansu Hoca", color: "#fd79a8", speed: 2.1, hp: 1, size: 40, type: "slow" },
-            { name: "Kutay", color: "#fa8231", speed: 2.4, hp: 1, size: 38, type: "ghost" }
+        const enemies = [
+            { name: "Mert Hoca", color: "#ff4757", speed: 0.85, hp: 3, size: 70, type: "it", dq: "Teknolojiye yenildin. - Mert Hoca" },
+            { name: "Çağan", color: "#2ecc71", speed: 2.7, hp: 1, size: 35, type: "hacker", dq: "Sistemlerin artık bana ait. - Çağan" },
+            { name: "Çağhan", color: "#9b59b6", speed: 1.5, hp: 2, size: 85, type: "armor", dq: "Kalkanıma çarptın. - Çağhan" },
+            { name: "Ali", color: "#3498db", speed: 1.9, hp: 1, size: 30, type: "tp", dq: "Hızıma yetişemezsin. - Ali" },
+            { name: "Cansu Hoca", color: "#e84393", speed: 2.2, hp: 1, size: 40, type: "slow", dq: "Disiplinsizliğinin bedeli. - Cansu Hoca" },
+            { name: "Kutay", color: "#e67e22", speed: 2.5, hp: 1, size: 35, type: "ghost", dq: "Beni göremezsin! - Kutay" }
         ];
+
+        function say(text) {
+            subText.innerText = text; subText.style.opacity = "1";
+            setTimeout(() => { if(subText.innerText === text) subText.style.opacity = "0"; }, 3000);
+        }
+
+        function triggerDeath(enemy, customTitle = null) {
+            gameActive = false;
+            gameOverScreen.style.background = `radial-gradient(circle, ${enemy.color}cc 0%, #000 100%)`;
+            deathMsgBig.innerText = customTitle || enemy.name.toUpperCase();
+            deathMsgBig.style.color = enemy.color;
+            deathQuote.innerText = `"${enemy.dq}"`;
+            gameOverScreen.style.display = "flex";
+        }
 
         function init() {
             document.getElementById("startScreen").style.display = "none";
-            hunters = templates.map(t => ({
-                ...t, x: Math.random()*canvas.width, y: -100, maxHp: t.hp,
-                dead: false, specT: Date.now(), shield: false, invis: false
+            hunters = enemies.map(e => ({ 
+                ...e, x: Math.random()*canvas.width, y: -100, 
+                maxHp: e.hp, dead: false, specT: Date.now(), shield: false, invis: false 
             }));
             gameActive = true;
             loop();
         }
 
         window.addEventListener("mousemove", e => { mouseX = e.clientX; mouseY = e.clientY; });
-        window.addEventListener("keydown", e => {
-            if(!gameActive || ammoReload < 100) return;
-            let vx = 0, vy = 0, m = revControls ? -1 : 1;
-            if(e.key === "ArrowUp") vy = -18 * m; else if(e.key === "ArrowDown") vy = 18 * m;
-            else if(e.key === "ArrowLeft") vx = -18 * m; else if(e.key === "ArrowRight") vx = 18 * m;
-            if(vx !== 0 || vy !== 0) { bullets.push({x: player.x, y: player.y, vx, vy, reflected: false}); ammoReload = 0; }
+
+        // MAYIN DÖŞEME (SOL TIK) - Limit: 5
+        window.addEventListener("mousedown", e => {
+            if(!gameActive || e.button !== 0) return;
+            if(mines.length < 5) {
+                mines.push({ x: player.x, y: player.y, size: 10, t: Date.now() });
+                say("Mayın Aktif!");
+            } else {
+                say("Mayın bitti!");
+            }
         });
 
-        function drawEntity(x, y, size, color, name) {
-            const grad = ctx.createRadialGradient(x - size/4, y - size/4, size/10, x, y, size);
-            grad.addColorStop(0, "#fff"); grad.addColorStop(0.3, color); grad.addColorStop(1, "#000");
-            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(x, y, size/2, 0, 7); ctx.fill();
-            ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
-            ctx.fillText(name, x, y - size/2 - 10);
-        }
+        // ATIŞ (OK TUŞLARI) - Limit: Ekranda 3 mermi
+        window.addEventListener("keydown", e => {
+            if(!gameActive || ammoReload < 100) return;
+            if(bullets.length >= 3) return; // Cephane kontrolü
+
+            let vx = 0, vy = 0, m = revControls ? -1 : 1;
+            let bSpeed = gunJam ? 8 : 18;
+            if(e.key === "ArrowUp") vy = -bSpeed * m; 
+            else if(e.key === "ArrowDown") vy = bSpeed * m;
+            else if(e.key === "ArrowLeft") vx = -bSpeed * m; 
+            else if(e.key === "ArrowRight") vx = bSpeed * m;
+
+            if(vx !== 0 || vy !== 0) { 
+                bullets.push({x: player.x, y: player.y, vx, vy, reflected: false}); 
+                ammoReload = 0; 
+            }
+        });
 
         function loop() {
             if(!gameActive) return;
             const now = Date.now();
-            ctx.fillStyle = "#0a0a0a"; ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             player.x += (mouseX - player.x) * (0.15 * playerDebuff);
             player.y += (mouseY - player.y) * (0.15 * playerDebuff);
-            playerDebuff = 1; if(ammoReload < 100) ammoReload += 10;
+            playerDebuff = 1; 
+            if(ammoReload < 100) ammoReload += 12;
 
-            drawEntity(player.x, player.y, player.size*2, player.color, "RÜZGAR");
+            // Oyuncu
+            ctx.fillStyle = player.color; ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, 7); ctx.fill();
+            ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText("RÜZGAR", player.x, player.y - 30);
 
+            // Mayınlar
+            mines.forEach((m, mi) => {
+                let pulse = 0.4 + Math.abs(Math.sin(now/250)) * 0.6;
+                ctx.fillStyle = `rgba(255, 50, 50, ${pulse})`;
+                ctx.beginPath(); ctx.arc(m.x, m.y, m.size, 0, 7); ctx.fill();
+                if(now - m.t > 1000 && Math.hypot(m.x-player.x, m.y-player.y) < player.size + m.size) {
+                    triggerDeath({color: "#ff0000", name: "KENDİ MAYININ!", dq: "Kendi tuzağına düştün."});
+                }
+            });
+
+            // Düşmanlar
             hunters.forEach(h => {
                 if(h.dead) return;
                 
-                // YETENEKLER
-                if(h.type === "hacker" && now - h.specT > 10000) {
-                    revControls = true; document.getElementById("glitch-fx").style.display = "block";
-                    h.specT = now; setTimeout(() => { revControls = false; document.getElementById("glitch-fx").style.display = "none"; }, 3000);
-                }
-                if(h.type === "armor" && now - h.specT > 7000) {
-                    h.shield = true; h.specT = now; setTimeout(() => h.shield = false, 4000);
-                }
-                if(h.type === "tp" && now - h.specT > 5000) { h.x = player.x + (Math.random()-0.5)*400; h.y = player.y + (Math.random()-0.5)*400; h.specT = now; }
-                if(h.type === "ghost") h.invis = (Math.sin(now/400) > 0.4);
+                // Güçler
+                if(h.type === "it" && now - h.specT > 10000) { gunJam = true; say("Mert Hoca: Teknolojik blokaj!"); h.specT = now; setTimeout(() => gunJam = false, 4000); }
+                if(h.type === "hacker" && now - h.specT > 12000) { revControls = true; say("Çağan: Sistem hacklendi!"); h.specT = now; setTimeout(() => revControls = false, 3000); }
+                if(h.type === "armor" && now - h.specT > 8500) { h.shield = true; say("Çağhan: Kalkan devrede!"); h.specT = now; setTimeout(() => h.shield = false, 4000); }
+                if(h.type === "ghost") h.invis = (Math.sin(now/600) > 0.3);
 
                 const angle = Math.atan2(player.y-h.y, player.x-h.x);
                 h.x += Math.cos(angle) * h.speed; h.y += Math.sin(angle) * h.speed;
 
-                if(h.shield) {
-                    ctx.strokeStyle = "#a55eea"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2+15, 0, 7); ctx.stroke();
-                    ctx.fillStyle = "rgba(165, 94, 234, 0.1)"; ctx.fill();
-                }
+                // Mayın Teması
+                mines.forEach((m, mi) => {
+                    if(Math.hypot(m.x-h.x, m.y-h.y) < h.size/2 + m.size) {
+                        mines.splice(mi, 1); h.hp -= 2;
+                        if(h.hp <= 0) { h.dead = true; score += 150; setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.y = -100; }, 3000); }
+                        say("DÜŞMAN PATLATILDI!");
+                    }
+                });
 
-                ctx.save(); if(h.invis) ctx.globalAlpha = 0.1;
-                drawEntity(h.x, h.y, h.size, h.color, h.name);
-                ctx.restore();
-
-                if(!h.invis && Math.hypot(h.x-player.x, h.y-player.y) < player.size + h.size/2) {
-                    gameActive = false; document.getElementById("gameOver").style.display = "flex";
+                if(!h.invis) {
+                    ctx.save();
+                    if(h.shield) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2+10, 0, 7); ctx.stroke(); }
+                    ctx.fillStyle = h.color; ctx.beginPath(); ctx.arc(h.x, h.y, h.size/2, 0, 7); ctx.fill();
+                    ctx.fillStyle = "white"; ctx.fillText(h.name, h.x, h.y - h.size/2 - 10);
+                    ctx.restore();
                 }
+                if(Math.hypot(h.x-player.x, h.y-player.y) < player.size + h.size/2) triggerDeath(h);
             });
 
             // Mermiler
             bullets.forEach((b, bi) => {
                 b.x += b.vx; b.y += b.vy;
-                ctx.fillStyle = b.reflected ? "#ff0000" : "#f1c40f";
-                ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, 7); ctx.fill();
+                ctx.fillStyle = b.reflected ? "red" : "yellow";
+                ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, 7); ctx.fill();
 
-                // Çarpışma: Mermi vs Oyuncu (Sadece yansıyanlar)
-                if(b.reflected && Math.hypot(b.x-player.x, b.y-player.y) < player.size + 5) {
-                    gameActive = false; document.getElementById("gameOver").style.display = "flex";
+                // Ekrandan çıkan mermiyi sil (Cephane iadesi)
+                if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                    bullets.splice(bi, 1);
                 }
 
+                if(b.reflected && Math.hypot(b.x-player.x, b.y-player.y) < player.size + 10) triggerDeath({color: "#ff4757", name: "GERİ TEPTİ!", dq: "Kendi mermin seni buldu."}, "KENDİ MERMİN!");
+
+                mines.forEach((m, mi) => {
+                    if(Math.hypot(b.x-m.x, b.y-m.y) < 15) { mines.splice(mi, 1); bullets.splice(bi, 1); }
+                });
+
                 hunters.forEach(h => {
-                    if(!h.dead && Math.hypot(b.x-h.x, b.y-h.y) < (h.shield ? h.size/2 + 15 : h.size/2)) {
-                        if(h.shield && !b.reflected) {
-                            // SEKTİRME MANTIĞI:
-                            b.vx = -b.vx * 1.2; b.vy = -b.vy * 1.2; // Geri döner ve hızlanır
-                            b.reflected = true;
-                            sub.innerText = "ÇAĞHAN: MERMİNİ SANA İADE EDİYORUM!";
-                        } else if(!h.shield) {
-                            bullets.splice(bi, 1); h.hp--;
-                            if(h.hp <= 0) { h.dead = true; score += 200; setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.y = -100; }, 4000); }
-                        }
+                    if(!h.dead && Math.hypot(b.x-h.x, b.y-h.y) < (h.shield ? h.size/2 + 10 : h.size/2)) {
+                        if(h.shield && !b.reflected) { b.vx = -b.vx; b.vy = -b.vy; b.reflected = true; }
+                        else if(!h.shield) { bullets.splice(bi, 1); h.hp--; if(h.hp <= 0) { h.dead = true; score += 100; setTimeout(() => { h.dead = false; h.hp = h.maxHp; h.y = -100; }, 3000); } }
                     }
                 });
             });
 
+            // HUD Güncelleme
             document.getElementById("score").innerText = score;
+            document.getElementById("mine-count").innerText = 5 - mines.length;
+            document.getElementById("bullet-count").innerText = 3 - bullets.length;
+            
+            // Cephane bittiğinde renk değiştir
+            document.getElementById("bullet-count").className = (bullets.length >= 3) ? "ammo-low" : "";
+            
             requestAnimationFrame(loop);
         }
+        window.addEventListener("resize", () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
     </script>
 </body>
 </html>
